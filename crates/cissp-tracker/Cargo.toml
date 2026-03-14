@@ -1,0 +1,10 @@
+[package]
+name = "cissp-tracker"
+version = "0.1.0"
+edition = "2021"
+description = "Track CISSP CPE progress in a simple markdown document"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+chrono = { workspace = true }

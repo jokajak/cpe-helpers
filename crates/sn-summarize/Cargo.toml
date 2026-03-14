@@ -1,0 +1,12 @@
+[package]
+name = "sn-summarize"
+version = "0.1.0"
+edition = "2021"
+description = "Use Claude API to generate CPE submission summaries for Security Now episodes"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

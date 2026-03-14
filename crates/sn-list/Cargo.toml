@@ -1,0 +1,14 @@
+[package]
+name = "sn-list"
+version = "0.1.0"
+edition = "2021"
+description = "List Security Now episodes from grc.com since a given date"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+chrono = { workspace = true }
+reqwest = { workspace = true }
+scraper = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
