@@ -1,0 +1,15 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "rust",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "extra-files": [
+        "crates/sn-list/Cargo.toml",
+        "crates/sn-fetch/Cargo.toml",
+        "crates/sn-summarize/Cargo.toml",
+        "crates/cissp-tracker/Cargo.toml"
+      ]
+    }
+  }
+}

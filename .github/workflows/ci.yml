@@ -37,3 +37,15 @@ jobs:
 
       - name: Run tests
         run: cargo test
+
+      - name: Upload build artifacts
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-linux-x86_64
+          path: |
+            target/release/sn-list
+            target/release/sn-fetch
+            target/release/sn-summarize
+            target/release/cissp-tracker
+          retention-days: 7
