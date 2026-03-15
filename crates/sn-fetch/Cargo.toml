@@ -1,0 +1,14 @@
+[package]
+name = "sn-fetch"
+version.workspace = true
+edition.workspace = true
+description = "Fetch Security Now episode details and audio from grc.com"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+chrono = { workspace = true }
+reqwest = { workspace = true }
+scraper = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

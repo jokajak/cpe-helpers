@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Verify binary versions
+        run: |
+          for bin in sn-list sn-fetch sn-summarize cissp-tracker; do
+            echo "=== $bin ==="
+            ./target/release/$bin --version
+          done
+
+      - name: Run tests
+        run: cargo test
+
+      - name: Upload build artifacts
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-linux-x86_64
+          path: |
+            target/release/sn-list
+            target/release/sn-fetch
+            target/release/sn-summarize
+            target/release/cissp-tracker
+          retention-days: 7

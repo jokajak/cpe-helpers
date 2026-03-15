@@ -1,0 +1,77 @@
+name: Release Binaries
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            suffix: ""
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            suffix: ""
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            suffix: ""
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            suffix: ".exe"
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build release binaries
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package binaries (unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          mkdir -p dist
+          for bin in sn-list sn-fetch sn-summarize cissp-tracker; do
+            cp "target/${{ matrix.target }}/release/${bin}${{ matrix.suffix }}" "dist/${bin}-${{ matrix.target }}${{ matrix.suffix }}"
+          done
+          cd dist
+          tar czf "../cpe-helpers-${{ github.event.release.tag_name }}-${{ matrix.target }}.tar.gz" *
+
+      - name: Package binaries (windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist
+          foreach ($bin in @("sn-list", "sn-fetch", "sn-summarize", "cissp-tracker")) {
+            Copy-Item "target/${{ matrix.target }}/release/${bin}${{ matrix.suffix }}" "dist/${bin}-${{ matrix.target }}${{ matrix.suffix }}"
+          }
+          Compress-Archive -Path dist/* -DestinationPath "cpe-helpers-${{ github.event.release.tag_name }}-${{ matrix.target }}.zip"
+
+      - name: Upload release assets (unix)
+        if: matrix.os != 'windows-latest'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            "cpe-helpers-${{ github.event.release.tag_name }}-${{ matrix.target }}.tar.gz"
+
+      - name: Upload release assets (windows)
+        if: matrix.os == 'windows-latest'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" "cpe-helpers-${{ github.event.release.tag_name }}-${{ matrix.target }}.zip"
