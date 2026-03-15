@@ -111,8 +111,7 @@ fn init_tracker(path: &PathBuf, start: &str, end: &str, required: u32) -> Result
 }
 
 fn add_entry(path: &PathBuf, date: &str, title: &str, credits: u32) -> Result<()> {
-    NaiveDate::parse_from_str(date, "%Y-%m-%d")
-        .with_context(|| format!("Invalid date: {date}"))?;
+    NaiveDate::parse_from_str(date, "%Y-%m-%d").with_context(|| format!("Invalid date: {date}"))?;
 
     let mut tracker = parse_tracker(path)?;
     tracker.entries.push(CpeEntry {
@@ -127,7 +126,10 @@ fn add_entry(path: &PathBuf, date: &str, title: &str, credits: u32) -> Result<()
     let submitted: u32 = tracker.entries.iter().map(|e| e.credits).sum();
     let remaining = tracker.required.saturating_sub(submitted);
     eprintln!("Added {credits} CPE(s): \"{title}\"");
-    eprintln!("Progress: {submitted}/{} ({remaining} remaining)", tracker.required);
+    eprintln!(
+        "Progress: {submitted}/{} ({remaining} remaining)",
+        tracker.required
+    );
     Ok(())
 }
 
@@ -137,7 +139,10 @@ fn show_status(path: &PathBuf) -> Result<()> {
     let remaining = tracker.required.saturating_sub(submitted);
 
     println!("CISSP CPE Status");
-    println!("  Period:    {} to {}", tracker.period_start, tracker.period_end);
+    println!(
+        "  Period:    {} to {}",
+        tracker.period_start, tracker.period_end
+    );
     println!("  Required:  {}", tracker.required);
     println!("  Submitted: {submitted}");
     println!("  Remaining: {remaining}");
@@ -175,8 +180,8 @@ fn render_tracker(data: &TrackerData) -> String {
 }
 
 fn parse_tracker(path: &PathBuf) -> Result<TrackerData> {
-    let content =
-        fs::read_to_string(path).with_context(|| format!("Tracker not found: {path:?}. Run 'cissp-tracker init' first."))?;
+    let content = fs::read_to_string(path)
+        .with_context(|| format!("Tracker not found: {path:?}. Run 'cissp-tracker init' first."))?;
 
     let mut period_start = String::new();
     let mut period_end = String::new();

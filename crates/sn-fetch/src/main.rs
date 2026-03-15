@@ -61,8 +61,7 @@ fn main() -> Result<()> {
         let markdown = render_markdown(&details, args.audio);
         let filename = format!("sn-{:04}.md", details.episode);
         let path = args.output_dir.join(&filename);
-        fs::write(&path, &markdown)
-            .with_context(|| format!("Failed to write {path:?}"))?;
+        fs::write(&path, &markdown).with_context(|| format!("Failed to write {path:?}"))?;
         eprintln!("Wrote {path:?}");
 
         if args.audio {
@@ -184,7 +183,7 @@ fn render_markdown(details: &EpisodeDetails, include_audio: bool) -> String {
 }
 
 /// Download the episode audio file.
-fn download_audio(details: &EpisodeDetails, output_dir: &PathBuf) -> Result<()> {
+fn download_audio(details: &EpisodeDetails, output_dir: &std::path::Path) -> Result<()> {
     let Some(ref audio_url) = details.audio_url else {
         eprintln!("No audio URL for episode {}", details.episode);
         return Ok(());

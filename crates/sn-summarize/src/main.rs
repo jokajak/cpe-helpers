@@ -43,11 +43,12 @@ fn main() -> Result<()> {
 }
 
 fn process_file(path: &PathBuf, api_key: &str, force: bool, speed: f64) -> Result<()> {
-    let content = fs::read_to_string(path)
-        .with_context(|| format!("Failed to read {path:?}"))?;
+    let content = fs::read_to_string(path).with_context(|| format!("Failed to read {path:?}"))?;
 
     if content.contains(CPE_SECTION_HEADER) && !force {
-        eprintln!("Skipping {path:?}: already has CPE Submission section (use --force to overwrite)");
+        eprintln!(
+            "Skipping {path:?}: already has CPE Submission section (use --force to overwrite)"
+        );
         return Ok(());
     }
 
@@ -60,8 +61,7 @@ fn process_file(path: &PathBuf, api_key: &str, force: bool, speed: f64) -> Resul
     let cpe_section = generate_cpe_summary(&content, api_key, speed)?;
 
     let updated = format!("{}\n{cpe_section}\n", content.trim_end());
-    fs::write(path, &updated)
-        .with_context(|| format!("Failed to write {path:?}"))?;
+    fs::write(path, &updated).with_context(|| format!("Failed to write {path:?}"))?;
 
     eprintln!("Added CPE Submission section to {path:?}");
     Ok(())
@@ -72,7 +72,9 @@ fn strip_existing_cpe_section(content: &str) -> String {
     if let Some(idx) = content.find(CPE_SECTION_HEADER) {
         // Find the next h2 section after CPE Submission, or end of file
         let rest = &content[idx + CPE_SECTION_HEADER.len()..];
-        let end = rest.find("\n## ").map(|i| idx + CPE_SECTION_HEADER.len() + i);
+        let end = rest
+            .find("\n## ")
+            .map(|i| idx + CPE_SECTION_HEADER.len() + i);
         match end {
             Some(end_idx) => format!("{}{}", &content[..idx], &content[end_idx..]),
             None => content[..idx].to_string(),
@@ -86,6 +88,7 @@ fn strip_existing_cpe_section(content: &str) -> String {
 ///
 /// Credits = floor(duration_minutes / speed / 60)
 /// e.g. a 110-minute episode at 1.25x = 88 minutes = 1 CPE credit
+#[cfg(test)]
 fn calculate_cpe_credits(duration_minutes: f64, speed: f64) -> u32 {
     let actual_minutes = duration_minutes / speed;
     (actual_minutes / 60.0).floor() as u32
