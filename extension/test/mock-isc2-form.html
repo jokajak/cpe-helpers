@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Mock ISC2 CPE form (autofill test)</title>
+    <style>
+      body { font: 14px/1.5 system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
+      label { display: block; font-weight: 600; margin-top: 16px; }
+      input, textarea, select { width: 100%; padding: 7px; margin-top: 4px; }
+      p.note { background: #fff7ed; padding: 10px; border-radius: 6px; }
+    </style>
+  </head>
+  <body>
+    <h1>Mock ISC2 CPE form</h1>
+    <p class="note">
+      This page mimics the ISC2 CPE submission fields so the autofill heuristics
+      can be tested offline. To exercise autofill against it, temporarily add the
+      file URL to <code>content_scripts.matches</code> in <code>manifest.json</code>
+      (e.g. <code>"file:///*"</code>), reload the extension, open this page, then
+      click "Autofill this ISC2 tab" in the popup.
+    </p>
+
+    <form>
+      <label for="f-title">Activity Title</label>
+      <input id="f-title" name="activityTitle" type="text" />
+
+      <label for="f-provider">Provider</label>
+      <input id="f-provider" name="provider" type="text" />
+
+      <label for="f-date">Completion Date</label>
+      <input id="f-date" name="completionDate" type="date" />
+
+      <label for="f-credits">Number of CPE Credits</label>
+      <input id="f-credits" name="cpeCredits" type="number" />
+
+      <label for="f-domain">CISSP Domain</label>
+      <select id="f-domain" name="domain">
+        <option value="">— select —</option>
+        <option>Security and Risk Management</option>
+        <option>Asset Security</option>
+        <option>Security Architecture and Engineering</option>
+        <option>Communication and Network Security</option>
+        <option>Identity and Access Management (IAM)</option>
+        <option>Security Assessment and Testing</option>
+        <option>Security Operations</option>
+        <option>Software Development Security</option>
+      </select>
+
+      <label for="f-desc">Description</label>
+      <textarea id="f-desc" name="description" rows="4"></textarea>
+
+      <label for="f-url">Supporting Documentation URL</label>
+      <input id="f-url" name="evidenceUrl" type="url" />
+    </form>
+  </body>
+</html>

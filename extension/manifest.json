@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "ISC2 CPE Helper",
+  "version": "0.1.0",
+  "description": "Record CISSP CPE credits from Security Now and Risky Business podcasts straight into the ISC2 CPE submission form.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "cpe-helper@jokajak",
+      "strict_min_version": "115.0"
+    }
+  },
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://feeds.twit.tv/*",
+    "https://risky.biz/*",
+    "https://api.anthropic.com/*",
+    "*://*.isc2.org/*"
+  ],
+  "action": {
+    "default_title": "ISC2 CPE Helper",
+    "default_popup": "popup.html",
+    "default_icon": "icons/icon.svg"
+  },
+  "icons": {
+    "48": "icons/icon.svg",
+    "96": "icons/icon.svg"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.isc2.org/*"],
+      "js": ["content/autofill.js"]
+    }
+  ]
+}
