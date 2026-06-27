@@ -47,6 +47,7 @@ function renderEpisodeOptions() {
     select.appendChild(opt);
   });
   updateCreditPreview();
+  syncYearDefault();
 }
 
 function selectedEpisode() {
@@ -104,13 +105,35 @@ function fallbackEntry(episode) {
   };
 }
 
+function yearOf(dateStr) {
+  const m = String(dateStr || "").match(/\d{4}/);
+  return m ? m[0] : String(new Date().getFullYear());
+}
+
+// The "Year Published" the ISC2 form wants. Defaults to the episode's publish
+// year but is user-editable (e.g. Security Now back-catalog listening).
+function currentYear() {
+  const v = el("year").value.trim();
+  if (/^\d{4}$/.test(v)) return v;
+  const ep = selectedEpisode();
+  return ep ? yearOf(ep.date) : String(new Date().getFullYear());
+}
+
+// Reset the year input to the selected episode's publish year.
+function syncYearDefault() {
+  const ep = selectedEpisode();
+  el("year").value = ep ? yearOf(ep.date) : "";
+}
+
 function buildFields(episode, generated, credits) {
   return {
     title: generated.title || `${episode.podcast}: ${episode.title}`,
     provider: episode.provider,
     date: episode.date,
+    year: currentYear(),
     credits: String(credits),
     domain: (generated.domains || []).join(", "),
+    domains: generated.domains || [],
     description: generated.description || "",
     url: episode.link || "",
   };
@@ -241,10 +264,20 @@ async function init() {
 
   el("refresh").addEventListener("click", loadEpisodes);
   podcastSel.addEventListener("change", renderEpisodeOptions);
-  el("episode").addEventListener("change", updateCreditPreview);
+  el("episode").addEventListener("change", () => {
+    updateCreditPreview();
+    syncYearDefault();
+  });
   el("speed").addEventListener("change", async () => {
     updateCreditPreview();
     await saveSettings({ speed: currentSpeed() });
+  });
+  // Let the user override the year after generating; keep the entry in sync.
+  el("year").addEventListener("change", () => {
+    if (!state.current) return;
+    state.current.fields.year = currentYear();
+    const cell = document.querySelector('#result .field[data-field="year"] .value');
+    if (cell) cell.textContent = state.current.fields.year;
   });
   el("generate").addEventListener("click", onGenerate);
   el("autofill").addEventListener("click", onAutofill);
