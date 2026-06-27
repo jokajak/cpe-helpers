@@ -22,15 +22,36 @@ produces something usable.
 
 ## Requirements
 
-- **Chrome 138+** (the built-in Prompt API / `LanguageModel` for extensions).
-- A machine capable of running Gemini Nano (roughly: ~22 GB free disk and a
-  supported GPU). The model downloads once, on first use.
+- **Chrome 138+** — the built-in Prompt API / `LanguageModel` (Gemini Nano).
+- A machine capable of running the on-device model (roughly: ~22 GB free disk
+  and a supported GPU). The model downloads once, on first use.
+
+If the on-device model isn't available, everything still works — the extension
+falls back to drafting the entry from the episode's own description plus
+keyword-based domain matching.
+
+### Browser support
+
+It's a standard Chromium MV3 extension, so it loads in any Chromium browser:
+
+| Browser | Loads | On-device AI |
+| --- | --- | --- |
+| Chrome 138+ | ✅ | ✅ Gemini Nano (built-in Prompt API) |
+| Microsoft Edge | ✅ (`edge://extensions`) | ⚠️ Same `LanguageModel` API, backed by Phi-4-mini, but currently a developer preview in the **Canary/Dev** channels (Edge 138+). In Edge stable it usually isn't present yet → the description fallback kicks in. |
+| Other Chromium (Brave, etc.) | ✅ | ❌ Usually no built-in model → description fallback |
+| Firefox | ❌ | Firefox lacks the Prompt API; this build targets Chromium. |
 
 ## Install (unpacked, for development)
 
-1. Open `chrome://extensions`.
-2. Turn on **Developer mode** (top right).
+1. Open `chrome://extensions` (or `edge://extensions` on Edge).
+2. Turn on **Developer mode** (top right on Chrome; bottom-left toggle on Edge).
 3. Click **Load unpacked** and select the `extension/` folder.
+
+The toolbar icon appears. To confirm on-device AI is available, open the gear
+(⚙︎) settings page — it shows the model status and a **Download model** button
+if the model needs fetching. (You can also check `await LanguageModel.availability()`
+in the popup's devtools console.) If it reports unavailable, generation still
+works via the description fallback.
 
 ## Configure
 
