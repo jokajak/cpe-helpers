@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="popup.css" />
+    <title>ISC2 CPE Helper</title>
+  </head>
+  <body>
+    <header>
+      <h1>ISC2 CPE Helper</h1>
+      <a href="#" id="open-options" title="Settings">⚙︎</a>
+    </header>
+
+    <section class="controls">
+      <div class="row">
+        <label for="podcast">Podcast</label>
+        <select id="podcast">
+          <option value="all">All podcasts</option>
+        </select>
+        <button id="refresh" type="button">Refresh</button>
+      </div>
+
+      <div class="row">
+        <label for="episode">Episode</label>
+        <select id="episode">
+          <option value="">Loading episodes…</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <label for="speed">Playback speed</label>
+        <input id="speed" type="number" min="0.5" max="4" step="0.05" value="1.25" />
+        <span id="credit-preview" class="muted"></span>
+      </div>
+
+      <button id="generate" type="button" class="primary">Generate CPE entry</button>
+    </section>
+
+    <p id="status" class="status" hidden></p>
+
+    <section id="result" class="result" hidden>
+      <div class="field" data-field="title">
+        <label>Title</label>
+        <div class="value-row"><span class="value"></span><button class="copy" type="button">Copy</button></div>
+      </div>
+      <div class="field" data-field="provider">
+        <label>Provider</label>
+        <div class="value-row"><span class="value"></span><button class="copy" type="button">Copy</button></div>
+      </div>
+      <div class="field" data-field="date">
+        <label>Completion date</label>
+        <div class="value-row"><span class="value"></span><button class="copy" type="button">Copy</button></div>
+      </div>
+      <div class="field" data-field="credits">
+        <label>CPE credits</label>
+        <div class="value-row"><span class="value"></span><button class="copy" type="button">Copy</button></div>
+      </div>
+      <div class="field" data-field="domain">
+        <label>CISSP domain(s)</label>
+        <div class="value-row"><span class="value"></span><button class="copy" type="button">Copy</button></div>
+      </div>
+      <div class="field" data-field="description">
+        <label>Description</label>
+        <div class="value-row"><span class="value description"></span><button class="copy" type="button">Copy</button></div>
+      </div>
+      <div class="field" data-field="url">
+        <label>Evidence URL</label>
+        <div class="value-row"><span class="value"></span><button class="copy" type="button">Copy</button></div>
+      </div>
+
+      <div class="actions">
+        <button id="autofill" type="button">Autofill this ISC2 tab</button>
+        <button id="mark-submitted" type="button">Mark submitted</button>
+      </div>
+      <p id="autofill-report" class="muted" hidden></p>
+    </section>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

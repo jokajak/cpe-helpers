@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ISC2 CPE Helper — Settings</title>
+    <style>
+      body { font: 14px/1.5 system-ui, sans-serif; color: #1d2733; max-width: 560px; margin: 32px auto; padding: 0 16px; }
+      h1 { font-size: 18px; }
+      label { display: block; font-weight: 600; margin-top: 18px; }
+      .hint { font-weight: 400; color: #6b7785; font-size: 13px; margin: 2px 0 6px; }
+      input[type="number"] { width: 120px; padding: 7px 8px; border: 1px solid #d6dde4; border-radius: 6px; }
+      button { padding: 8px 16px; background: #14598a; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .card { margin-top: 10px; padding: 12px; border: 1px solid #d6dde4; border-radius: 8px; background: #fafcfe; }
+      #ai-status { font-weight: 600; }
+      #ai-progress { color: #6b7785; }
+      #saved { color: #1a7f4b; margin-left: 12px; }
+      .row { display: flex; align-items: center; gap: 12px; margin-top: 22px; }
+    </style>
+  </head>
+  <body>
+    <h1>ISC2 CPE Helper — Settings</h1>
+
+    <label>On-device AI (Chrome built-in / Gemini Nano)</label>
+    <p class="hint">
+      Descriptions are drafted locally — no API key, no account, nothing leaves
+      your machine. Requires Chrome 138+ on capable hardware. If the model isn't
+      available, the extension falls back to the episode's own description.
+    </p>
+    <div class="card">
+      <div id="ai-status">Checking…</div>
+      <div id="ai-progress"></div>
+      <p style="margin: 8px 0 0">
+        <button id="download" type="button" hidden>Download model</button>
+      </p>
+    </div>
+
+    <label for="speed">Default playback speed</label>
+    <p class="hint">Used to compute CPE credits: floor(duration / speed / 60).</p>
+    <input id="speed" type="number" min="0.5" max="4" step="0.05" />
+
+    <div class="row">
+      <button id="save" type="button">Save</button>
+      <span id="saved" hidden>Saved.</span>
+    </div>
+
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

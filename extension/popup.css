@@ -1,0 +1,84 @@
+:root {
+  --bg: #ffffff;
+  --fg: #1d2733;
+  --muted: #6b7785;
+  --accent: #14598a;
+  --accent-fg: #ffffff;
+  --border: #d6dde4;
+  --ok: #1a7f4b;
+  --warn: #b4541a;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  width: 380px;
+  margin: 0;
+  font: 13px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+header h1 { font-size: 14px; margin: 0; }
+header a { text-decoration: none; font-size: 16px; color: var(--muted); }
+
+.controls, .result { padding: 12px; }
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.row label { width: 92px; flex: none; color: var(--muted); }
+.row select, .row input { flex: 1; padding: 5px 6px; border: 1px solid var(--border); border-radius: 5px; }
+.row #speed { flex: none; width: 70px; }
+
+button {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  background: #f3f6f9;
+  border-radius: 5px;
+  cursor: pointer;
+  color: var(--fg);
+}
+button:hover { background: #e9eef3; }
+button.primary {
+  width: 100%;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+button.primary:hover { background: #0f4d77; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.muted { color: var(--muted); font-size: 12px; }
+
+.status {
+  margin: 0;
+  padding: 8px 12px;
+  background: #fff7ed;
+  color: var(--warn);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.status.ok { background: #effaf3; color: var(--ok); }
+
+.result { border-top: 1px solid var(--border); }
+.field { margin-bottom: 10px; }
+.field > label { display: block; color: var(--muted); margin-bottom: 3px; }
+.value-row { display: flex; align-items: flex-start; gap: 6px; }
+.value { flex: 1; padding: 5px 6px; border: 1px solid var(--border); border-radius: 5px; background: #fafcfe; min-height: 16px; }
+.value.description { white-space: pre-wrap; }
+.copy { flex: none; }
+
+.actions { display: flex; gap: 8px; margin-top: 4px; }
+.actions button { flex: 1; }
