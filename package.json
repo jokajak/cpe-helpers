@@ -1,0 +1,8 @@
+{
+  "name": "cpe-helpers",
+  "private": true,
+  "description": "JS unit tests for the ISC2 CPE Helper browser extension (extension/).",
+  "scripts": {
+    "test": "node --test extension/test/*.test.mjs"
+  }
+}

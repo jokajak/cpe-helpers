@@ -49,3 +49,21 @@ jobs:
             target/release/sn-summarize
             target/release/cissp-tracker
           retention-days: 7
+
+  extension-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Syntax-check extension JS
+        run: |
+          for f in extension/lib/*.js extension/*.js extension/content/*.js; do
+            node --check "$f"
+          done
+
+      - name: Run extension unit tests
+        run: npm test

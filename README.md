@@ -14,6 +14,14 @@ CPE form (with copy buttons as a fallback).
 
 See [`extension/README.md`](extension/README.md) for install and usage.
 
+## Tests
+
+- Extension (JS): `npm test` — zero-dependency unit tests via Node's built-in
+  test runner (`node --test`) covering the credit math, CISSP domain matching,
+  RSS duration parsing, and the on-device Prompt API client (with a mocked
+  model). Runs in CI alongside a JS syntax check.
+- Rust CLI: `cargo test`.
+
 ## Rust CLI (original approach)
 
 The [`crates/`](crates/) workspace holds the original CLI tools (`sn-list`,
