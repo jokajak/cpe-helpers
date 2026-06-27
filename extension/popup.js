@@ -1,6 +1,7 @@
 import { defaultFeeds, fetchEpisodes } from "./lib/feeds.js";
 import { creditsFor, actualListeningMinutes } from "./lib/cpe.js";
-import { generateCpe } from "./lib/claude.js";
+import { generateCpe, availability } from "./lib/promptapi.js";
+import { domainsFor } from "./lib/domains.js";
 import { getSettings, saveSettings, getSubmitted, markSubmitted } from "./lib/storage.js";
 
 const el = (id) => document.getElementById(id);
@@ -92,7 +93,18 @@ async function loadEpisodes() {
   }
 }
 
-function buildFields(episode, generated, speed, credits) {
+// No-model fallback: use the episode's own description + keyword domain matching.
+function fallbackEntry(episode) {
+  const desc = (episode.description || "").replace(/\s+/g, " ").trim();
+  const trimmed = desc.length > 500 ? desc.slice(0, 500).replace(/\s+\S*$/, "") + "…" : desc;
+  return {
+    title: `${episode.podcast}: ${episode.title}`,
+    description: trimmed || `Listened to the ${episode.podcast} episode "${episode.title}".`,
+    domains: domainsFor(desc),
+  };
+}
+
+function buildFields(episode, generated, credits) {
   return {
     title: generated.title || `${episode.podcast}: ${episode.title}`,
     provider: episode.provider,
@@ -125,29 +137,38 @@ async function onGenerate() {
   const actual = actualListeningMinutes(episode.durationMinutes || 0, speed);
 
   el("generate").disabled = true;
-  setStatus("Asking Claude to draft the entry…");
   try {
-    const generated = await generateCpe({
-      apiKey: state.settings.apiKey,
-      model: state.settings.model,
-      episode,
-      speed,
-      credits,
-      actualMinutes: actual,
-    });
-    const fields = buildFields(episode, generated, speed, credits);
-    state.current = { episode, generated, fields };
-    renderResult(fields, episode);
-    setStatus("Draft ready. Copy fields or autofill the ISC2 form.", true);
+    let generated;
+    const status = await availability();
+    if (status === "unavailable") {
+      generated = fallbackEntry(episode);
+      setStatus("On-device AI unavailable — drafted from the episode description. Edit as needed.", true);
+    } else {
+      setStatus(status === "available" ? "Drafting with on-device AI…" : "Preparing on-device model…");
+      generated = await generateCpe({
+        episode,
+        speed,
+        credits,
+        actualMinutes: actual,
+        onProgress: (f) => setStatus(`Downloading on-device model… ${Math.round(f * 100)}%`),
+      });
+      setStatus("Draft ready. Copy fields or autofill the ISC2 form.", true);
+    }
+    state.current = { episode, generated, fields: buildFields(episode, generated, credits) };
+    renderResult(state.current.fields, episode);
   } catch (err) {
-    setStatus(err.message || String(err));
+    // Any failure still yields a usable entry from the description.
+    const generated = fallbackEntry(episode);
+    state.current = { episode, generated, fields: buildFields(episode, generated, credits) };
+    renderResult(state.current.fields, episode);
+    setStatus(`On-device AI failed (${err.message}). Used the episode description instead.`);
   } finally {
     el("generate").disabled = false;
   }
 }
 
 async function activeIsc2TabId() {
-  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || !tab.url) return null;
   return /:\/\/[^/]*isc2\.org\//.test(tab.url) ? tab.id : null;
 }
@@ -167,11 +188,11 @@ async function onAutofill() {
     return;
   }
   try {
-    const report = await browser.tabs.sendMessage(tabId, {
+    const report = await chrome.tabs.sendMessage(tabId, {
       type: "cpe-autofill",
       fields: state.current.fields,
     });
-    const summary = Object.entries(report)
+    const summary = Object.entries(report || {})
       .filter(([, v]) => v !== "skipped")
       .map(([k, v]) => `${k}: ${v}`)
       .join(" · ");
@@ -208,7 +229,6 @@ async function init() {
   state.settings = await getSettings();
   state.submitted = await getSubmitted();
 
-  // Podcast filter options.
   const podcastSel = el("podcast");
   state.feeds.forEach((f) => {
     const opt = document.createElement("option");
@@ -219,7 +239,6 @@ async function init() {
 
   el("speed").value = state.settings.speed;
 
-  // Wire events.
   el("refresh").addEventListener("click", loadEpisodes);
   podcastSel.addEventListener("change", renderEpisodeOptions);
   el("episode").addEventListener("change", updateCreditPreview);
@@ -232,15 +251,12 @@ async function init() {
   el("mark-submitted").addEventListener("click", onMarkSubmitted);
   el("open-options").addEventListener("click", (e) => {
     e.preventDefault();
-    browser.runtime.openOptionsPage();
+    chrome.runtime.openOptionsPage();
   });
   document.querySelectorAll("#result .copy").forEach((b) =>
     b.addEventListener("click", () => copyFieldValue(b))
   );
 
-  if (!state.settings.apiKey) {
-    setStatus("No Claude API key yet — open settings (⚙︎) to add one.");
-  }
   await loadEpisodes();
 }
 

@@ -1,6 +1,6 @@
-# ISC2 CPE Helper (Firefox extension)
+# ISC2 CPE Helper (Chrome extension)
 
-A Firefox extension that turns listening to the **Security Now** and **Risky
+A Chrome extension that turns listening to the **Security Now** and **Risky
 Business** podcasts into ISC2 CISSP CPE submissions with as little friction as
 possible — right next to the ISC2 CPE form where you actually do the submitting.
 
@@ -10,34 +10,42 @@ It:
 2. Lets you pick an episode and set your playback speed.
 3. Computes CPE credits — `floor(duration / speed / 60)` (same formula as the
    repo's Rust `sn-summarize` crate).
-4. Drafts an ISC2-ready title, 2–3 sentence description, and suggested CISSP
-   domain(s) via the Claude API.
+4. Drafts an ISC2-ready title, 2–3 sentence description, and CISSP domain(s)
+   **on-device** using Chrome's built-in AI (Gemini Nano) — **no API key, no
+   account, nothing leaves your machine**.
 5. **Autofills** the ISC2 CPE form, with one-click **copy** buttons as a
    fallback.
 
-## Install (temporary, for development)
+If the on-device model isn't available, it falls back to drafting the entry from
+the episode's own description plus keyword-based domain matching, so it always
+produces something usable.
 
-1. Open `about:debugging#/runtime/this-firefox` in Firefox.
-2. Click **Load Temporary Add-on…**.
-3. Select `extension/manifest.json`.
+## Requirements
 
-The extension icon appears in the toolbar. Temporary add-ons are removed when
-Firefox restarts — reload it the same way after a restart.
+- **Chrome 138+** (the built-in Prompt API / `LanguageModel` for extensions).
+- A machine capable of running Gemini Nano (roughly: ~22 GB free disk and a
+  supported GPU). The model downloads once, on first use.
+
+## Install (unpacked, for development)
+
+1. Open `chrome://extensions`.
+2. Turn on **Developer mode** (top right).
+3. Click **Load unpacked** and select the `extension/` folder.
 
 ## Configure
 
-Click the toolbar icon → the gear (⚙︎), or open the add-on's preferences:
+Click the toolbar icon → the gear (⚙︎), or open the extension's options:
 
-- **Claude API key** — required to draft descriptions. Stored only in this
-  browser's extension storage. Create one at `console.anthropic.com`.
-- **Model** — Opus 4.8 (default, best quality), Sonnet 4.6, or Haiku 4.5
-  (cheapest).
+- **On-device AI** — shows availability; if the model is downloadable, a
+  **Download model** button fetches Gemini Nano (one-time) with progress.
 - **Default playback speed** — defaults to `1.25`.
+
+There is no API key to enter.
 
 ## Use
 
 1. Open the popup, choose a podcast and episode, confirm the playback speed.
-2. Click **Generate CPE entry**.
+2. Click **Generate CPE entry** (first run may download the model).
 3. Either click **Autofill this ISC2 tab** (when the active tab is the ISC2 CPE
    form) or use the per-field **Copy** buttons.
 4. Optionally **Mark submitted** so the episode shows a ✓ and you don't
@@ -47,15 +55,16 @@ Click the toolbar icon → the gear (⚙︎), or open the add-on's preferences:
 
 ```
 extension/
-  manifest.json          MV3 manifest (Firefox)
+  manifest.json          MV3 manifest (Chrome)
   popup.html/.js/.css     main UI: pick episode, generate, copy, autofill
-  options.html/.js        settings: API key, model, default speed
+  options.html/.js        settings: on-device AI status + default speed
   content/autofill.js     content script: heuristic form filler on isc2.org
   lib/cpe.js              credit math
   lib/feeds.js            RSS fetch + parse → episode objects
-  lib/claude.js           Claude Messages API client (structured JSON output)
+  lib/promptapi.js        Chrome Prompt API (Gemini Nano) client, JSON output
+  lib/domains.js          CISSP domains + keyword matcher (enum + fallback)
   lib/storage.js          settings + submitted-episode log
-  icons/icon.svg          toolbar/store icon
+  icons/                  toolbar/store icons (PNG, plus icon.svg source)
   test/mock-isc2-form.html  offline form for testing autofill
 ```
 
@@ -67,8 +76,10 @@ extension/
   fill on the live form, the popup's per-field report shows which one missed;
   capture that field's HTML and the matcher in `content/autofill.js` can be
   tightened.
-- The Claude API key lives in browser storage and requests use the
-  `anthropic-dangerous-direct-browser-access` header — fine for a personal tool;
-  don't ship this key anywhere shared.
-- The feed URLs are `https://feeds.twit.tv/sn.xml` (Security Now) and
+- Gemini Nano is a small on-device model — quality is good for short summaries
+  but not on par with a frontier cloud model. The episode-description fallback
+  covers machines where it can't run at all.
+- The Prompt API is still stabilizing; the extension feature-detects and
+  degrades gracefully rather than assuming availability.
+- Feed URLs: `https://feeds.twit.tv/sn.xml` (Security Now) and
   `https://risky.biz/feeds/risky-business` (Risky Business).

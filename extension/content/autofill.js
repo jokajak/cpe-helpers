@@ -96,13 +96,16 @@
     return report;
   }
 
-  browser.runtime.onMessage.addListener((msg) => {
+  // Chrome can't return a promise from an onMessage listener — respond
+  // synchronously via sendResponse (fillForm is synchronous).
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg && msg.type === "cpe-ping") {
-      return Promise.resolve({ ok: true });
+      sendResponse({ ok: true });
+      return;
     }
     if (msg && msg.type === "cpe-autofill") {
-      return Promise.resolve(fillForm(msg.fields || {}));
+      sendResponse(fillForm(msg.fields || {}));
+      return;
     }
-    return undefined;
   });
 })();

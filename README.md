@@ -3,13 +3,14 @@
 Utilities for managing CISSP CPE (Continuing Professional Education) credits
 earned from security podcasts (Security Now, Risky Business).
 
-## Firefox extension (recommended)
+## Browser extension (recommended)
 
-[`extension/`](extension/) is a Firefox extension that does the whole workflow in
+[`extension/`](extension/) is a Chrome extension that does the whole workflow in
 the browser, next to the ISC2 CPE submission form: it pulls recent episodes from
 the podcast RSS feeds, computes CPE credits from the episode duration and your
-playback speed, drafts an ISC2-ready title/description/domain via the Claude API,
-and then **autofills** the ISC2 CPE form (with copy buttons as a fallback).
+playback speed, drafts an ISC2-ready title/description/domain **on-device** with
+Chrome's built-in AI (Gemini Nano — no API key), and then **autofills** the ISC2
+CPE form (with copy buttons as a fallback).
 
 See [`extension/README.md`](extension/README.md) for install and usage.
 

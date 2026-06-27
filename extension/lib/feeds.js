@@ -76,8 +76,10 @@ export async function fetchFeed(feed) {
     const guidEl = childByLocalName(item, "guid");
     const link = textOf(childByLocalName(item, "link")) || textOf(guidEl);
     const durationRaw = textOf(childByLocalName(item, "duration")); // itunes:duration
-    const encoded = textOf(childByLocalName(item, "encoded")); // content:encoded
-    const description = encoded || textOf(childByLocalName(item, "description"));
+    // Prefer the RSS <description> (episode summary) over content:encoded (the
+    // fuller show notes) — it's cleaner and a better fit for a CPE blurb.
+    const summary = textOf(childByLocalName(item, "description"));
+    const description = summary || textOf(childByLocalName(item, "encoded"));
 
     return {
       feedId: feed.id,
