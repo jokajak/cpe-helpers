@@ -34,6 +34,12 @@
         <span id="credit-preview" class="muted"></span>
       </div>
 
+      <div class="row">
+        <label for="year">Year published</label>
+        <input id="year" type="number" min="2000" max="2099" step="1" />
+        <span class="muted">for the ISC2 form</span>
+      </div>
+
       <button id="generate" type="button" class="primary">Generate CPE entry</button>
     </section>
 
@@ -54,6 +60,10 @@
       </div>
       <div class="field" data-field="credits">
         <label>CPE credits</label>
+        <div class="value-row"><span class="value"></span><button class="copy" type="button">Copy</button></div>
+      </div>
+      <div class="field" data-field="year">
+        <label>Year published</label>
         <div class="value-row"><span class="value"></span><button class="copy" type="button">Copy</button></div>
       </div>
       <div class="field" data-field="domain">

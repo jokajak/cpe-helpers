@@ -4,53 +4,112 @@
     <meta charset="utf-8" />
     <title>Mock ISC2 CPE form (autofill test)</title>
     <style>
-      body { font: 14px/1.5 system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
-      label { display: block; font-weight: 600; margin-top: 16px; }
-      input, textarea, select { width: 100%; padding: 7px; margin-top: 4px; }
+      body { font: 14px/1.5 system-ui, sans-serif; max-width: 680px; margin: 32px auto; padding: 0 16px; }
+      h2 { margin-top: 28px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
       p.note { background: #fff7ed; padding: 10px; border-radius: 6px; }
+      .cards { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+      .domainCard, .programCard {
+        border: 1px solid #c9d3dc; border-radius: 8px; padding: 10px 12px; cursor: pointer;
+        background: #fafcfe; user-select: none;
+      }
+      .programCard { width: 100%; font-weight: 600; }
+      .domainCard.selected, .programCard.selected { background: #d8ecff; border-color: #14598a; }
+      .domainCard.selected::after { content: " ✓"; color: #14598a; }
     </style>
   </head>
   <body>
-    <h1>Mock ISC2 CPE form</h1>
+    <h1>Mock ISC2 CPE form — podcast sub-type</h1>
     <p class="note">
-      This page mimics the ISC2 CPE submission fields so the autofill heuristics
-      can be tested offline. To exercise autofill against it, temporarily add the
-      file URL to <code>content_scripts.matches</code> in <code>manifest.json</code>
-      (e.g. <code>"file:///*"</code>), reload the extension, open this page, then
-      click "Autofill this ISC2 tab" in the popup.
+      Mirrors the Salesforce Lightning "Education → Online webinars, podcasts and
+      other online materials" path: the Step 2 detail fields are nested in Shadow
+      DOM with their real Salesforce API <code>name</code>s, domains are clickable
+      cards (not a <code>&lt;select&gt;</code>), and dates are text inputs. To test:
+      temporarily add <code>"file:///*"</code> to <code>content_scripts.matches</code>
+      in <code>manifest.json</code>, reload the extension, open this page, then click
+      "Autofill this ISC2 tab" in the popup.
     </p>
 
-    <form>
-      <label for="f-title">Activity Title</label>
-      <input id="f-title" name="activityTitle" type="text" />
+    <h2>Step 1 — Dates</h2>
+    <div id="dates-host"></div>
 
-      <label for="f-provider">Provider</label>
-      <input id="f-provider" name="provider" type="text" />
+    <h2>Step 2 — Details (in nested Shadow DOM)</h2>
+    <div id="detail-host"></div>
 
-      <label for="f-date">Completion Date</label>
-      <input id="f-date" name="completionDate" type="date" />
+    <h2>Step 3 — Domain cards</h2>
+    <div class="programCard" data-card onclick="this.classList.toggle('selected')">
+      <span>Certified Information Systems Security Professional</span>
+    </div>
+    <div class="cards" id="domain-cards"></div>
 
-      <label for="f-credits">Number of CPE Credits</label>
-      <input id="f-credits" name="cpeCredits" type="number" />
+    <script>
+      // Build a field as its own custom element with a shadow root containing a
+      // <label for> + <input>, to exercise the content script's shadow recursion
+      // and same-root label lookup (as lightning-primitive-input-simple does).
+      function addField(parentRoot, spec) {
+        const host = document.createElement("div");
+        host.className = "field-host";
+        const root = host.attachShadow({ mode: "open" });
+        const id = "in-" + spec.name;
+        const attrs = [
+          `id="${id}"`,
+          `name="${spec.name}"`,
+          `type="text"`,
+          `class="slds-input"`,
+          spec.placeholder ? `placeholder="${spec.placeholder}"` : "",
+          spec.maxlength ? `maxlength="${spec.maxlength}"` : "",
+          spec.role ? `role="${spec.role}"` : "",
+          spec.inputmode ? `inputmode="${spec.inputmode}"` : "",
+        ].filter(Boolean).join(" ");
+        root.innerHTML = `
+          <style>
+            label { display:block; font-weight:600; margin-top:12px; }
+            input { width:100%; padding:7px; margin-top:4px; box-sizing:border-box; }
+          </style>
+          <label for="${id}">${spec.label}</label>
+          <input ${attrs} />`;
+        parentRoot.appendChild(host);
+      }
 
-      <label for="f-domain">CISSP Domain</label>
-      <select id="f-domain" name="domain">
-        <option value="">— select —</option>
-        <option>Security and Risk Management</option>
-        <option>Asset Security</option>
-        <option>Security Architecture and Engineering</option>
-        <option>Communication and Network Security</option>
-        <option>Identity and Access Management (IAM)</option>
-        <option>Security Assessment and Testing</option>
-        <option>Security Operations</option>
-        <option>Software Development Security</option>
-      </select>
+      // Step 1 — dates inside a shadow root too.
+      const datesRoot = document.getElementById("dates-host").attachShadow({ mode: "open" });
+      addField(datesRoot, { name: "start-date", label: "Start Date" });
+      addField(datesRoot, { name: "end-date", label: "End Date" });
 
-      <label for="f-desc">Description</label>
-      <textarea id="f-desc" name="description" rows="4"></textarea>
+      // Step 2 — the five detail fields, nested one shadow level deeper.
+      const detailRoot = document.getElementById("detail-host").attachShadow({ mode: "open" });
+      const heading = document.createElement("p");
+      heading.textContent = "Details for Online webinars, podcasts and other online materials";
+      heading.style.fontWeight = "600";
+      detailRoot.appendChild(heading);
+      addField(detailRoot, { name: "Label__c", label: "*Title", placeholder: "Label", maxlength: 255 });
+      addField(detailRoot, { name: "Presenter__c", label: "*Presenter", placeholder: "Presenter", maxlength: 100 });
+      addField(detailRoot, { name: "Yearpublished__c", label: "*Year Published", maxlength: 4 });
+      addField(detailRoot, { name: "Credits__c", label: "*Credits", role: "spinbutton", inputmode: "decimal" });
+      addField(detailRoot, { name: "ReviewText__c", label: "Summary", placeholder: "Review Text", maxlength: 32768 });
 
-      <label for="f-url">Supporting Documentation URL</label>
-      <input id="f-url" name="evidenceUrl" type="url" />
-    </form>
+      // Step 3 — one clickable card per CISSP domain.
+      const DOMAINS = [
+        "Security and Risk Management",
+        "Asset Security",
+        "Security Architecture and Engineering",
+        "Communication and Network Security",
+        "Identity and Access Management (IAM)",
+        "Security Assessment and Testing",
+        "Security Operations",
+        "Software Development Security",
+      ];
+      const cards = document.getElementById("domain-cards");
+      for (const name of DOMAINS) {
+        const card = document.createElement("div");
+        card.className = "domainCard";
+        card.setAttribute("data-card", "");
+        card.addEventListener("click", () => card.classList.toggle("selected"));
+        const span = document.createElement("span");
+        span.className = "domainName";
+        span.textContent = name;
+        card.appendChild(span);
+        cards.appendChild(card);
+      }
+    </script>
   </body>
 </html>
