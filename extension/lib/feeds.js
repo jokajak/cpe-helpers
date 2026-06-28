@@ -124,8 +124,12 @@ export async function fetchFeed(feed) {
 // The TWiT RSS only carries the newest ~10 episodes. To reach older ones we
 // parse GRC's per-year archive pages. Structure (per the long-standing GRC
 // layout): each episode is anchored by <a name="<number>">, followed by a
-// pipe-delimited "episode | date | length" header, a <font size="2"> title and
-// a <font size="1"> description.
+// pipe-delimited "Episode #N | date | length" header inside its own
+// <font size="1">, then a *content* <font size="1"> that wraps the
+// <font size="2"> title and carries the episode description as the remaining
+// text. (There are several <font size="1"> per episode — the header line and
+// the file-size labels too — so the description is identified as the size=1
+// font that contains the size=2 title, not merely the first size=1 seen.)
 
 export function grcUrlForYear(year, currentYear = new Date().getFullYear()) {
   return Number(year) >= Number(currentYear)
@@ -184,8 +188,16 @@ export function parseGrcEpisodes(html) {
       }
       if (cur && tag === "FONT") {
         const size = node.getAttribute("size");
-        if (size === "2" && !cur.title) cur.title = node.textContent.trim();
-        else if (size === "1" && !cur.description) cur.description = node.textContent.trim();
+        if (size === "2" && !cur.title) {
+          cur.title = node.textContent.trim();
+        } else if (size === "1" && !cur.description) {
+          // The description lives in the size=1 font that *wraps* the size=2
+          // title — not the size=1 header line or the size=1 file-size labels.
+          // Find it by the nested title font, then strip the title text back
+          // out so only the show-notes remain.
+          const titleEl = node.querySelector('font[size="2"]');
+          if (titleEl) cur.description = node.textContent.replace(titleEl.textContent, "").trim();
+        }
       }
     } else if (cur && !cur.title) {
       // Accumulate text before the title font — the header lives here.

@@ -22,3 +22,7 @@ target
 
 # Downloaded episode data and audio files
 episodes/
+
+# Node / extension test dependencies (installed in CI via `npm install`)
+node_modules/
+bun.lock

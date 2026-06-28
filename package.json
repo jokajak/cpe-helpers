@@ -4,5 +4,8 @@
   "description": "JS unit tests for the ISC2 CPE Helper browser extension (extension/).",
   "scripts": {
     "test": "node --test extension/test/*.test.mjs"
+  },
+  "devDependencies": {
+    "linkedom": "^0.18.12"
   }
 }
