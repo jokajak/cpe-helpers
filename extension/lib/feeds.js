@@ -120,6 +120,107 @@ export async function fetchFeed(feed) {
   });
 }
 
+// ---- Security Now archive (grc.com) -------------------------------------
+// The TWiT RSS only carries the newest ~10 episodes. To reach older ones we
+// parse GRC's per-year archive pages. Structure (per the long-standing GRC
+// layout): each episode is anchored by <a name="<number>">, followed by a
+// pipe-delimited "episode | date | length" header, a <font size="2"> title and
+// a <font size="1"> description.
+
+export function grcUrlForYear(year, currentYear = new Date().getFullYear()) {
+  return Number(year) >= Number(currentYear)
+    ? "https://www.grc.com/securitynow.htm"
+    : `https://www.grc.com/sn/past/${year}.htm`;
+}
+
+// Pull the date and duration (in whole minutes) out of an episode's header text.
+// A "h:mm:ss" / "mm:ss" token is a clock time; "NN min" is already minutes
+// (don't route it through parseDurationToMinutes, which treats a bare integer as
+// seconds).
+export function parseGrcHeader(text) {
+  const s = String(text || "");
+  let durationMinutes = null;
+  const clock = s.match(/\b(\d{1,2}:\d{2}(?::\d{2})?)\b/);
+  if (clock) {
+    durationMinutes = parseDurationToMinutes(clock[1]);
+  } else {
+    const mins = s.match(/\b(\d{2,3})\s*min(?:ute)?s?\b/i);
+    if (mins) durationMinutes = parseInt(mins[1], 10);
+  }
+  const date =
+    (s.match(/\b(\d{4}-\d{2}-\d{2})\b/) ||
+      s.match(
+        /\b((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4})\b/i
+      ) ||
+      s.match(
+        /\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4})\b/i
+      ) ||
+      [])[1] || "";
+  return { date, durationMinutes };
+}
+
+// Parse a GRC archive page's HTML into episode objects (same shape as the RSS
+// path). Groups DOM nodes by the most recent episode anchor, so it tolerates
+// variation in the exact table nesting.
+export function parseGrcEpisodes(html) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const root = doc.body || doc.documentElement;
+  if (!root) return [];
+
+  const raw = [];
+  let cur = null;
+  const flush = () => {
+    if (cur && cur.number) raw.push(cur);
+  };
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    if (node.nodeType === 1) {
+      const tag = node.tagName;
+      if (tag === "A" && /^\d+$/.test(node.getAttribute("name") || "")) {
+        flush();
+        cur = { number: node.getAttribute("name"), header: "", title: "", description: "" };
+        continue;
+      }
+      if (cur && tag === "FONT") {
+        const size = node.getAttribute("size");
+        if (size === "2" && !cur.title) cur.title = node.textContent.trim();
+        else if (size === "1" && !cur.description) cur.description = node.textContent.trim();
+      }
+    } else if (cur && !cur.title) {
+      // Accumulate text before the title font — the header lives here.
+      cur.header += " " + node.textContent;
+    }
+  }
+  flush();
+
+  return raw
+    .map((e) => {
+      const { date, durationMinutes } = parseGrcHeader(e.header);
+      return {
+        feedId: "security-now",
+        podcast: "Security Now",
+        provider: "Security Now",
+        title: e.title || `Security Now ${e.number}`,
+        link: `https://www.grc.com/sn/sn-${e.number}.htm`,
+        guid: `grc-sn-${e.number}`,
+        date: toIsoDate(date),
+        durationMinutes,
+        episodeNumber: e.number,
+        description: stripHtml(e.description),
+      };
+    })
+    .sort((a, b) => Number(b.episodeNumber) - Number(a.episodeNumber));
+}
+
+// Fetch and parse one year of Security Now episodes from grc.com.
+export async function fetchSecurityNowYear(year) {
+  const url = grcUrlForYear(year);
+  const res = await fetch(url, { cache: "no-cache" });
+  if (!res.ok) throw new Error(`Failed to fetch Security Now ${year}: HTTP ${res.status}`);
+  return parseGrcEpisodes(await res.text());
+}
+
 // Fetch every requested feed, tolerating individual feed failures so one dead
 // feed doesn't blank the whole list. Returns { episodes, errors }.
 export async function fetchEpisodes(feeds) {

@@ -8,6 +8,7 @@
   "host_permissions": [
     "https://feeds.twit.tv/*",
     "https://risky.biz/*",
+    "https://www.grc.com/*",
     "*://*.isc2.org/*"
   ],
   "background": {

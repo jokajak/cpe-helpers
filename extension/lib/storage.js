@@ -37,6 +37,25 @@ export async function setCachedEpisodes(episodes) {
   await chrome.storage.local.set({ episodesCache: { episodes, fetchedAt: Date.now() } });
 }
 
+// Security Now archive cache, keyed by year (pages are scraped per year).
+export async function getCachedSnYear(year) {
+  const stored = await chrome.storage.local.get("snCache");
+  const cache = (stored.snCache || {})[String(year)];
+  if (!cache || !Array.isArray(cache.episodes)) return null;
+  return {
+    episodes: cache.episodes,
+    fetchedAt: cache.fetchedAt || 0,
+    fresh: Date.now() - (cache.fetchedAt || 0) < EPISODES_TTL_MS,
+  };
+}
+
+export async function setCachedSnYear(year, episodes) {
+  const stored = await chrome.storage.local.get("snCache");
+  const snCache = stored.snCache || {};
+  snCache[String(year)] = { episodes, fetchedAt: Date.now() };
+  await chrome.storage.local.set({ snCache });
+}
+
 // ---- Generated drafts ---------------------------------------------------
 // Persist the generated CPE entry per episode (keyed by guid) so reopening the
 // popup or reselecting an episode restores the draft instead of regenerating.

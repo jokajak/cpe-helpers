@@ -68,7 +68,10 @@ There is no API key to enter.
 ## Use
 
 1. Click the toolbar icon to open the side panel; choose a podcast and episode,
-   confirm the playback speed.
+   confirm the playback speed. For **Security Now**, an **Episode year** selector
+   appears — the podcast RSS only carries the newest ~10 episodes, so older years
+   are loaded from the grc.com archive (`securitynow.htm` for the current year,
+   `sn/past/<year>.htm` for past years) and cached per year.
 2. Click **Generate CPE entry** (first run may download the model).
 3. Either click **Autofill this ISC2 tab** (when the active tab is the ISC2 CPE
    form) or use the per-field **Copy** buttons.
