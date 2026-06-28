@@ -1,4 +1,4 @@
-import { defaultFeeds, fetchEpisodes } from "./lib/feeds.js";
+import { defaultFeeds, fetchEpisodes, snTitle } from "./lib/feeds.js";
 import { creditsFor, actualListeningMinutes } from "./lib/cpe.js";
 import { generateCpe, availability } from "./lib/promptapi.js";
 import { domainsFor } from "./lib/domains.js";
@@ -152,9 +152,18 @@ function syncYearDefault() {
   el("year").value = ep ? yearOf(ep.date) : "";
 }
 
+// Security Now submissions are prefixed "SN-<episode number>:".
+function buildTitle(episode, generated) {
+  const modelTitle = (generated.title || "").trim();
+  if (episode.feedId === "security-now" && episode.episodeNumber) {
+    return snTitle(episode.episodeNumber, modelTitle || episode.title || "");
+  }
+  return modelTitle || `${episode.podcast}: ${episode.title}`;
+}
+
 function buildFields(episode, generated, credits) {
   return {
-    title: generated.title || `${episode.podcast}: ${episode.title}`,
+    title: buildTitle(episode, generated),
     provider: episode.provider,
     date: episode.date,
     year: currentYear(),
