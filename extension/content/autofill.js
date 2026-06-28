@@ -82,22 +82,38 @@
   }
 
   function labelText(el) {
+    const parts = [];
+    let root = null;
     try {
-      const root = el.getRootNode();
-      if (el.id && root && root.querySelector) {
-        const lbl = root.querySelector(`label[for="${CSS.escape(el.id)}"]`);
-        if (lbl) return lbl.textContent || "";
-      }
+      root = el.getRootNode();
     } catch (_) {
-      // LockerService can throw on some ShadowRoot methods — fall through.
+      // LockerService can throw on some ShadowRoot methods.
+    }
+    const lookup = (sel) => {
+      try {
+        return root && root.querySelector ? root.querySelector(sel) : null;
+      } catch (_) {
+        return null;
+      }
+    };
+    if (el.id) {
+      const lbl = lookup(`label[for="${CSS.escape(el.id)}"]`);
+      if (lbl) parts.push(lbl.textContent || "");
+    }
+    const labelledby = el.getAttribute("aria-labelledby");
+    if (labelledby) {
+      for (const id of labelledby.split(/\s+/)) {
+        const node = lookup(`#${CSS.escape(id)}`);
+        if (node) parts.push(node.textContent || "");
+      }
     }
     try {
       const wrap = el.closest("label");
-      if (wrap) return wrap.textContent || "";
+      if (wrap) parts.push(wrap.textContent || "");
     } catch (_) {
       /* ignore */
     }
-    return "";
+    return parts.join(" ");
   }
 
   function describe(el) {
@@ -112,13 +128,17 @@
 
   // ---- Value setting -------------------------------------------------------
 
-  // Native value setter + input/change so Lightning's reactive bindings register.
+  // Native value setter + input/change/blur so Lightning's reactive bindings and
+  // on-blur validation register. composed:true lets the events cross shadow
+  // boundaries in case a listener sits above the inner input.
   function setInputValue(el, value) {
     const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
     const setter = Object.getOwnPropertyDescriptor(proto, "value").set;
     setter.call(el, value);
-    el.dispatchEvent(new Event("input", { bubbles: true }));
-    el.dispatchEvent(new Event("change", { bubbles: true }));
+    el.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+    el.dispatchEvent(new Event("focusout", { bubbles: true, composed: true }));
+    el.dispatchEvent(new Event("blur"));
   }
 
   // Exactly one click — firing both el.click() and a synthetic MouseEvent would
@@ -225,7 +245,10 @@
   // ---- Dates (Step 1) ------------------------------------------------------
 
   function findControl(controls, used, apiName, keywords) {
-    let el = controls.find((c) => !used.has(c) && c.getAttribute("name") === apiName);
+    const wanted = String(apiName).toLowerCase();
+    let el = controls.find(
+      (c) => !used.has(c) && (c.getAttribute("name") || "").toLowerCase() === wanted
+    );
     if (!el && keywords) {
       el = controls.find((c) => !used.has(c) && keywords.some((k) => describe(c).includes(k)));
     }
@@ -303,6 +326,21 @@
       }
     } else {
       report.url = "skipped";
+    }
+
+    // Diagnostics: every text control we could see on this page (name + label +
+    // placeholder), so a missed field can be matched against the real markup.
+    report.__candidates = controls.map((c) => ({
+      name: c.getAttribute("name") || "",
+      label: labelText(c).replace(/\s+/g, " ").trim().slice(0, 60),
+      placeholder: c.getAttribute("placeholder") || "",
+      type: (c.getAttribute("type") || c.tagName).toLowerCase(),
+    }));
+    try {
+      // eslint-disable-next-line no-console
+      console.debug("[ISC2 CPE Helper] discovered fields:", report.__candidates);
+    } catch (_) {
+      /* ignore */
     }
 
     return report;
