@@ -1,4 +1,4 @@
-import { defaultFeeds, fetchEpisodes, snTitle } from "./lib/feeds.js";
+import { defaultFeeds, fetchEpisodes, fetchSecurityNowYear, snTitle } from "./lib/feeds.js";
 import { creditsFor, actualListeningMinutes } from "./lib/cpe.js";
 import { generateCpe, availability } from "./lib/promptapi.js";
 import { domainsFor } from "./lib/domains.js";
@@ -9,6 +9,8 @@ import {
   markSubmitted,
   getCachedEpisodes,
   setCachedEpisodes,
+  getCachedSnYear,
+  setCachedSnYear,
   getEntry,
   saveEntry,
   getSelection,
@@ -84,37 +86,67 @@ function updateCreditPreview() {
   node.textContent = `${credits} credit(s) · ${actual} min`;
 }
 
-// Render from the local cache without hitting the network. Returns true if a
-// cache existed.
-async function loadFromCache() {
-  const cache = await getCachedEpisodes();
-  if (!cache || cache.episodes.length === 0) return false;
-  state.episodes = cache.episodes;
-  renderEpisodeOptions();
-  const age = Math.round((Date.now() - cache.fetchedAt) / 60000);
-  setStatus(cache.fresh ? `${cache.episodes.length} episodes (cached). Refresh for latest.`
-    : `${cache.episodes.length} episodes (cached ${age} min ago). Refresh for latest.`);
-  return true;
+// Security Now archive mode: browse a full year from grc.com (the TWiT RSS only
+// carries the newest ~10). Other podcasts use the RSS feeds.
+function isSnArchiveMode() {
+  return el("podcast").value === "security-now";
 }
 
-// Fetch from the feeds and update the cache (used by Refresh and the first run).
-async function loadEpisodes() {
-  setStatus("Fetching episodes…");
+function currentListYear() {
+  const v = parseInt(el("listyear").value, 10);
+  return Number.isNaN(v) ? new Date().getFullYear() : v;
+}
+
+function updateYearSelectorVisibility() {
+  el("listyear-row").hidden = !isSnArchiveMode();
+}
+
+// Load the episode list for the current source (SN archive year, or RSS feeds),
+// from cache unless forced. Renders the dropdown.
+async function loadList(force = false) {
   el("refresh").disabled = true;
   try {
-    const { episodes, errors } = await fetchEpisodes(state.feeds);
-    state.episodes = episodes;
-    if (episodes.length) await setCachedEpisodes(episodes);
-    renderEpisodeOptions();
-    await restoreSelection();
-    if (errors.length && episodes.length) {
-      setStatus(`Loaded with warnings: ${errors.join("; ")}`);
-    } else if (errors.length) {
-      setStatus(errors.join("; "));
+    if (isSnArchiveMode()) {
+      const year = currentListYear();
+      let list = null;
+      if (!force) {
+        const cache = await getCachedSnYear(year);
+        if (cache) {
+          list = cache.episodes;
+          setStatus(`Security Now ${year}: ${list.length} episodes (cached). Refresh for latest.`);
+        }
+      }
+      if (!list) {
+        setStatus(`Loading Security Now ${year} from grc.com…`);
+        list = await fetchSecurityNowYear(year);
+        await setCachedSnYear(year, list);
+        setStatus(`Security Now ${year}: ${list.length} episodes.`, true);
+      }
+      state.episodes = list;
     } else {
-      setStatus(`${episodes.length} episodes loaded.`, true);
+      let list = null;
+      if (!force) {
+        const cache = await getCachedEpisodes();
+        if (cache) {
+          list = cache.episodes;
+          setStatus(`${list.length} episodes (cached). Refresh for latest.`);
+        }
+      }
+      if (!list) {
+        setStatus("Fetching episodes…");
+        const { episodes, errors } = await fetchEpisodes(state.feeds);
+        if (episodes.length) await setCachedEpisodes(episodes);
+        list = episodes;
+        if (errors.length && episodes.length) setStatus(`Loaded with warnings: ${errors.join("; ")}`);
+        else if (errors.length) setStatus(errors.join("; "));
+        else setStatus(`${episodes.length} episodes loaded.`, true);
+      }
+      state.episodes = list;
     }
+    renderEpisodeOptions();
   } catch (err) {
+    state.episodes = [];
+    renderEpisodeOptions();
     setStatus(err.message || String(err));
   } finally {
     el("refresh").disabled = false;
@@ -185,13 +217,14 @@ function renderResult(fields, episode) {
   refreshAutofillButton();
 }
 
-// Persist the current UI selection so the popup restores it next open.
+// Persist the current UI selection so the side panel restores it next open.
 async function persistSelection() {
   const ep = selectedEpisode();
   await saveSelection({
     podcast: el("podcast").value,
     guid: ep ? ep.guid : null,
     year: el("year").value,
+    listYear: el("listyear").value,
   });
 }
 
@@ -212,18 +245,22 @@ async function restoreEntryForSelected(hideIfNone = false) {
   }
 }
 
-// Restore the last podcast + episode + year, then any saved draft.
+// Restore the last podcast + episode-year + episode + published-year, then any
+// saved draft, and load the matching episode list.
 async function restoreSelection() {
   const sel = await getSelection();
-  if (!sel) return;
-  if (sel.podcast) el("podcast").value = sel.podcast;
-  renderEpisodeOptions();
-  if (sel.guid) {
+  if (sel) {
+    if (sel.podcast) el("podcast").value = sel.podcast;
+    if (sel.listYear) el("listyear").value = sel.listYear;
+  }
+  updateYearSelectorVisibility();
+  await loadList();
+  if (sel && sel.guid) {
     const list = visibleEpisodes();
     const idx = list.findIndex((e) => e.guid === sel.guid);
     if (idx >= 0) el("episode").value = String(idx);
   }
-  if (sel.year) el("year").value = sel.year;
+  if (sel && sel.year) el("year").value = sel.year;
   updateCreditPreview();
   await restoreEntryForSelected();
 }
@@ -363,9 +400,24 @@ async function init() {
 
   el("speed").value = state.settings.speed;
 
-  el("refresh").addEventListener("click", loadEpisodes);
+  // Episode-year options for the Security Now archive: current year back to 2005.
+  const listYearSel = el("listyear");
+  const thisYear = new Date().getFullYear();
+  for (let y = thisYear; y >= 2005; y--) {
+    const opt = document.createElement("option");
+    opt.value = String(y);
+    opt.textContent = String(y);
+    listYearSel.appendChild(opt);
+  }
+
+  el("refresh").addEventListener("click", () => loadList(true));
   podcastSel.addEventListener("change", async () => {
-    renderEpisodeOptions();
+    updateYearSelectorVisibility();
+    await loadList();
+    await onSelectionChanged();
+  });
+  listYearSel.addEventListener("change", async () => {
+    await loadList();
     await onSelectionChanged();
   });
   el("episode").addEventListener("change", onSelectionChanged);
@@ -396,13 +448,8 @@ async function init() {
     b.addEventListener("click", () => copyFieldValue(b))
   );
 
-  // Use the local cache for an instant open; only fetch if there's nothing cached.
-  const hadCache = await loadFromCache();
-  if (hadCache) {
-    await restoreSelection();
-  } else {
-    await loadEpisodes();
-  }
+  // Restore the last podcast/year/episode and load that list (cache-first).
+  await restoreSelection();
 }
 
 init();

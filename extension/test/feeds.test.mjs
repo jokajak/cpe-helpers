@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseDurationToMinutes, parseEpisodeNumber, snTitle } from "../lib/feeds.js";
+import {
+  parseDurationToMinutes,
+  parseEpisodeNumber,
+  snTitle,
+  parseGrcHeader,
+  grcUrlForYear,
+} from "../lib/feeds.js";
 
 test("parses raw seconds", () => {
   assert.equal(parseDurationToMinutes("5400"), 90);
@@ -37,4 +43,28 @@ test("snTitle prefixes and de-duplicates the episode label", () => {
   assert.equal(snTitle("1234", "Security Now 1234: TLS deep dive"), "SN-1234: TLS deep dive");
   assert.equal(snTitle("1234", "1234: TLS deep dive"), "SN-1234: TLS deep dive");
   assert.equal(snTitle("1234", "SN 1234 - TLS"), "SN-1234: TLS");
+});
+
+test("grcUrlForYear uses the archive page for past years, the live page otherwise", () => {
+  assert.equal(grcUrlForYear(2024, 2026), "https://www.grc.com/sn/past/2024.htm");
+  assert.equal(grcUrlForYear(2005, 2026), "https://www.grc.com/sn/past/2005.htm");
+  assert.equal(grcUrlForYear(2026, 2026), "https://www.grc.com/securitynow.htm");
+  assert.equal(grcUrlForYear(2027, 2026), "https://www.grc.com/securitynow.htm");
+});
+
+test("parseGrcHeader extracts date and minutes (clock vs 'N min')", () => {
+  assert.deepEqual(parseGrcHeader("Episode #1010 | Sep 17, 2024 | 1:54:00"), {
+    date: "Sep 17, 2024",
+    durationMinutes: 114,
+  });
+  assert.deepEqual(parseGrcHeader("1009 | 2024-09-10 | 2:03:30"), {
+    date: "2024-09-10",
+    durationMinutes: 124,
+  });
+  // "113 min" is already minutes, not seconds.
+  assert.deepEqual(parseGrcHeader("#1008 | 3 Sep 2024 | 113 min"), {
+    date: "3 Sep 2024",
+    durationMinutes: 113,
+  });
+  assert.deepEqual(parseGrcHeader("no date or length here"), { date: "", durationMinutes: null });
 });

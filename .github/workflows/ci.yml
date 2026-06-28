@@ -65,5 +65,8 @@ jobs:
             node --check "$f"
           done
 
+      - name: Install test dependencies
+        run: npm install
+
       - name: Run extension unit tests
         run: npm test
