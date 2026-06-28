@@ -89,6 +89,16 @@ extension/
   test/mock-isc2-form.html  offline form for testing autofill
 ```
 
+## Caching & the multi-page wizard
+
+- The episode list is **cached locally** — opening the popup is instant and does
+  not refetch. Click **Refresh** to pull the latest episodes.
+- Each generated draft is **saved per episode**, and your last podcast/episode/year
+  selection is remembered. Because the ISC2 form is a multi-page wizard (the domain
+  step is a separate page), you can reopen the popup on each page and click
+  **Autofill** again — it fills whatever fields that page shows (dates → details →
+  domain cards) from the same saved draft.
+
 ## Notes & limitations
 
 - The exact ISC2 CPE portal markup is behind a login, so autofill matches fields

@@ -2,7 +2,18 @@ import { defaultFeeds, fetchEpisodes } from "./lib/feeds.js";
 import { creditsFor, actualListeningMinutes } from "./lib/cpe.js";
 import { generateCpe, availability } from "./lib/promptapi.js";
 import { domainsFor } from "./lib/domains.js";
-import { getSettings, saveSettings, getSubmitted, markSubmitted } from "./lib/storage.js";
+import {
+  getSettings,
+  saveSettings,
+  getSubmitted,
+  markSubmitted,
+  getCachedEpisodes,
+  setCachedEpisodes,
+  getEntry,
+  saveEntry,
+  getSelection,
+  saveSelection,
+} from "./lib/storage.js";
 
 const el = (id) => document.getElementById(id);
 
@@ -73,19 +84,35 @@ function updateCreditPreview() {
   node.textContent = `${credits} credit(s) · ${actual} min`;
 }
 
+// Render from the local cache without hitting the network. Returns true if a
+// cache existed.
+async function loadFromCache() {
+  const cache = await getCachedEpisodes();
+  if (!cache || cache.episodes.length === 0) return false;
+  state.episodes = cache.episodes;
+  renderEpisodeOptions();
+  const age = Math.round((Date.now() - cache.fetchedAt) / 60000);
+  setStatus(cache.fresh ? `${cache.episodes.length} episodes (cached). Refresh for latest.`
+    : `${cache.episodes.length} episodes (cached ${age} min ago). Refresh for latest.`);
+  return true;
+}
+
+// Fetch from the feeds and update the cache (used by Refresh and the first run).
 async function loadEpisodes() {
   setStatus("Fetching episodes…");
   el("refresh").disabled = true;
   try {
     const { episodes, errors } = await fetchEpisodes(state.feeds);
     state.episodes = episodes;
+    if (episodes.length) await setCachedEpisodes(episodes);
     renderEpisodeOptions();
+    await restoreSelection();
     if (errors.length && episodes.length) {
       setStatus(`Loaded with warnings: ${errors.join("; ")}`);
     } else if (errors.length) {
       setStatus(errors.join("; "));
     } else {
-      setStatus("");
+      setStatus(`${episodes.length} episodes loaded.`, true);
     }
   } catch (err) {
     setStatus(err.message || String(err));
@@ -149,6 +176,57 @@ function renderResult(fields, episode) {
   refreshAutofillButton();
 }
 
+// Persist the current UI selection so the popup restores it next open.
+async function persistSelection() {
+  const ep = selectedEpisode();
+  await saveSelection({
+    podcast: el("podcast").value,
+    guid: ep ? ep.guid : null,
+    year: el("year").value,
+  });
+}
+
+// If a draft was already generated for the selected episode, restore it.
+async function restoreEntryForSelected(hideIfNone = false) {
+  const ep = selectedEpisode();
+  if (!ep) return;
+  const saved = await getEntry(ep.guid);
+  if (saved && saved.fields) {
+    if (saved.fields.year) el("year").value = saved.fields.year;
+    state.current = { episode: ep, generated: saved.generated, fields: saved.fields };
+    renderResult(saved.fields, ep);
+    setStatus("Restored saved draft. Autofill the current ISC2 page or copy fields.", true);
+  } else if (hideIfNone) {
+    state.current = null;
+    el("result").hidden = true;
+    refreshAutofillButton();
+  }
+}
+
+// Restore the last podcast + episode + year, then any saved draft.
+async function restoreSelection() {
+  const sel = await getSelection();
+  if (!sel) return;
+  if (sel.podcast) el("podcast").value = sel.podcast;
+  renderEpisodeOptions();
+  if (sel.guid) {
+    const list = visibleEpisodes();
+    const idx = list.findIndex((e) => e.guid === sel.guid);
+    if (idx >= 0) el("episode").value = String(idx);
+  }
+  if (sel.year) el("year").value = sel.year;
+  updateCreditPreview();
+  await restoreEntryForSelected();
+}
+
+// Called whenever the podcast/episode selection changes.
+async function onSelectionChanged() {
+  updateCreditPreview();
+  syncYearDefault();
+  await persistSelection();
+  await restoreEntryForSelected(true);
+}
+
 async function onGenerate() {
   const episode = selectedEpisode();
   if (!episode) {
@@ -179,11 +257,15 @@ async function onGenerate() {
     }
     state.current = { episode, generated, fields: buildFields(episode, generated, credits) };
     renderResult(state.current.fields, episode);
+    await saveEntry(episode.guid, { generated: state.current.generated, fields: state.current.fields });
+    await persistSelection();
   } catch (err) {
     // Any failure still yields a usable entry from the description.
     const generated = fallbackEntry(episode);
     state.current = { episode, generated, fields: buildFields(episode, generated, credits) };
     renderResult(state.current.fields, episode);
+    await saveEntry(episode.guid, { generated: state.current.generated, fields: state.current.fields });
+    await persistSelection();
     setStatus(`On-device AI failed (${err.message}). Used the episode description instead.`);
   } finally {
     el("generate").disabled = false;
@@ -211,16 +293,26 @@ async function onAutofill() {
     return;
   }
   try {
-    const report = await chrome.tabs.sendMessage(tabId, {
+    const report = (await chrome.tabs.sendMessage(tabId, {
       type: "cpe-autofill",
       fields: state.current.fields,
-    });
-    const summary = Object.entries(report || {})
+    })) || {};
+    const candidates = report.__candidates || [];
+    const entries = Object.entries(report).filter(([k]) => !k.startsWith("__"));
+    const summary = entries
       .filter(([, v]) => v !== "skipped")
       .map(([k, v]) => `${k}: ${v}`)
       .join(" · ");
     const node = el("autofill-report");
     node.textContent = summary || "Nothing to fill.";
+    // If something wasn't found, surface the field names this page actually has,
+    // so the matcher can be tuned. Full detail is in the page's devtools console.
+    const missed = entries.filter(([, v]) => v === "not found").map(([k]) => k);
+    if (missed.length && candidates.length) {
+      const names = candidates.map((c) => c.name || c.label || c.placeholder).filter(Boolean);
+      node.textContent += ` — not found: ${missed.join(", ")}. Page fields: ${names.join(", ") || "none"}`;
+      console.debug("[ISC2 CPE Helper] autofill candidates", candidates);
+    }
     node.hidden = false;
     setStatus("Autofill attempted. Check the form and the report below.", true);
   } catch (err) {
@@ -263,21 +355,26 @@ async function init() {
   el("speed").value = state.settings.speed;
 
   el("refresh").addEventListener("click", loadEpisodes);
-  podcastSel.addEventListener("change", renderEpisodeOptions);
-  el("episode").addEventListener("change", () => {
-    updateCreditPreview();
-    syncYearDefault();
+  podcastSel.addEventListener("change", async () => {
+    renderEpisodeOptions();
+    await onSelectionChanged();
   });
+  el("episode").addEventListener("change", onSelectionChanged);
   el("speed").addEventListener("change", async () => {
     updateCreditPreview();
     await saveSettings({ speed: currentSpeed() });
   });
-  // Let the user override the year after generating; keep the entry in sync.
-  el("year").addEventListener("change", () => {
+  // Let the user override the year; keep the entry + saved draft in sync.
+  el("year").addEventListener("change", async () => {
+    await persistSelection();
     if (!state.current) return;
     state.current.fields.year = currentYear();
     const cell = document.querySelector('#result .field[data-field="year"] .value');
     if (cell) cell.textContent = state.current.fields.year;
+    await saveEntry(state.current.episode.guid, {
+      generated: state.current.generated,
+      fields: state.current.fields,
+    });
   });
   el("generate").addEventListener("click", onGenerate);
   el("autofill").addEventListener("click", onAutofill);
@@ -290,7 +387,13 @@ async function init() {
     b.addEventListener("click", () => copyFieldValue(b))
   );
 
-  await loadEpisodes();
+  // Use the local cache for an instant open; only fetch if there's nothing cached.
+  const hadCache = await loadFromCache();
+  if (hadCache) {
+    await restoreSelection();
+  } else {
+    await loadEpisodes();
+  }
 }
 
 init();
