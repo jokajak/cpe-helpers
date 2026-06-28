@@ -12,7 +12,8 @@
 * { box-sizing: border-box; }
 
 body {
-  width: 380px;
+  /* Fills the side panel (Chrome controls the panel width). */
+  min-width: 280px;
   margin: 0;
   font: 13px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   color: var(--fg);

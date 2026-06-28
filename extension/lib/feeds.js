@@ -36,6 +36,28 @@ export function parseDurationToMinutes(raw) {
   return Math.round(seconds / 60);
 }
 
+// Security Now episode number, from itunes:episode if present, else parsed from
+// the title (e.g. "SN 1234: …", "Security Now 1234: …", or a bare 3-4 digit no.).
+export function parseEpisodeNumber(title, itunesEpisode) {
+  const ep = String(itunesEpisode || "").trim();
+  if (/^\d+$/.test(ep)) return ep;
+  const t = String(title || "");
+  const m =
+    t.match(/\b(?:SN|Security\s*Now)\s*#?\s*(\d{2,4})\b/i) ||
+    t.match(/#\s*(\d{2,4})\b/) ||
+    t.match(/\b(\d{3,4})\b/);
+  return m ? m[1] : null;
+}
+
+// Build a Security Now CPE title prefixed "SN-<number>:", stripping any episode
+// label already present in the base topic so the number isn't duplicated.
+export function snTitle(episodeNumber, baseTitle) {
+  const base = String(baseTitle || "").trim();
+  const body =
+    base.replace(/^\s*(?:(?:security\s*now|sn)\s*)?#?\s*\d{2,4}\s*[:.\-–]*\s*/i, "").trim() || base;
+  return `SN-${episodeNumber}: ${body}`;
+}
+
 function childByLocalName(parent, localName) {
   for (const el of parent.children) {
     if (el.localName === localName) return el;
@@ -76,6 +98,7 @@ export async function fetchFeed(feed) {
     const guidEl = childByLocalName(item, "guid");
     const link = textOf(childByLocalName(item, "link")) || textOf(guidEl);
     const durationRaw = textOf(childByLocalName(item, "duration")); // itunes:duration
+    const itunesEpisode = textOf(childByLocalName(item, "episode")); // itunes:episode
     // Prefer the RSS <description> (episode summary) over content:encoded (the
     // fuller show notes) — it's cleaner and a better fit for a CPE blurb.
     const summary = textOf(childByLocalName(item, "description"));
@@ -90,6 +113,8 @@ export async function fetchFeed(feed) {
       guid: textOf(guidEl) || link,
       date: toIsoDate(pubDate),
       durationMinutes: parseDurationToMinutes(durationRaw),
+      // Only Security Now needs an episode number (for the "SN-<n>" title prefix).
+      episodeNumber: feed.id === "security-now" ? parseEpisodeNumber(title, itunesEpisode) : null,
       description: stripHtml(description),
     };
   });
