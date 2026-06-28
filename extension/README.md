@@ -47,11 +47,13 @@ It's a standard Chromium MV3 extension, so it loads in any Chromium browser:
 2. Turn on **Developer mode** (top right on Chrome; bottom-left toggle on Edge).
 3. Click **Load unpacked** and select the `extension/` folder.
 
-The toolbar icon appears. To confirm on-device AI is available, open the gear
-(⚙︎) settings page — it shows the model status and a **Download model** button
-if the model needs fetching. (You can also check `await LanguageModel.availability()`
-in the popup's devtools console.) If it reports unavailable, generation still
-works via the description fallback.
+Clicking the toolbar icon opens the extension's **side panel** (it stays open
+beside the ISC2 form, which makes copy/paste and per-page autofill easier). To
+confirm on-device AI is available, open the gear (⚙︎) settings page — it shows
+the model status and a **Download model** button if the model needs fetching.
+(You can also check `await LanguageModel.availability()` in the side panel's
+devtools console.) If it reports unavailable, generation still works via the
+description fallback.
 
 ## Configure
 
@@ -65,7 +67,8 @@ There is no API key to enter.
 
 ## Use
 
-1. Open the popup, choose a podcast and episode, confirm the playback speed.
+1. Click the toolbar icon to open the side panel; choose a podcast and episode,
+   confirm the playback speed.
 2. Click **Generate CPE entry** (first run may download the model).
 3. Either click **Autofill this ISC2 tab** (when the active tab is the ISC2 CPE
    form) or use the per-field **Copy** buttons.
@@ -77,7 +80,8 @@ There is no API key to enter.
 ```
 extension/
   manifest.json          MV3 manifest (Chrome)
-  popup.html/.js/.css     main UI: pick episode, generate, copy, autofill
+  background.js           opens the side panel when the toolbar icon is clicked
+  popup.html/.js/.css     side-panel UI: pick episode, generate, copy, autofill
   options.html/.js        settings: on-device AI status + default speed
   content/autofill.js     content script: heuristic form filler on isc2.org
   lib/cpe.js              credit math
@@ -91,13 +95,13 @@ extension/
 
 ## Caching & the multi-page wizard
 
-- The episode list is **cached locally** — opening the popup is instant and does
-  not refetch. Click **Refresh** to pull the latest episodes.
+- The episode list is **cached locally** — opening the side panel is instant and
+  does not refetch. Click **Refresh** to pull the latest episodes.
 - Each generated draft is **saved per episode**, and your last podcast/episode/year
   selection is remembered. Because the ISC2 form is a multi-page wizard (the domain
-  step is a separate page), you can reopen the popup on each page and click
-  **Autofill** again — it fills whatever fields that page shows (dates → details →
-  domain cards) from the same saved draft.
+  step is a separate page), the side panel stays open as you advance pages — click
+  **Autofill** again on each page and it fills whatever fields that page shows
+  (dates → details → domain cards) from the same saved draft.
 
 ## Notes & limitations
 
