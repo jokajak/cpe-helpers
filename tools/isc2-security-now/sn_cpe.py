@@ -122,9 +122,20 @@ def wait_gap(rows, journal, seconds):
             time.sleep(remaining + 1)
 
 
-def require_signed_in(page):
-    if "login" in page.url.lower() or "my.isc2.org" in page.url.lower():
-        raise Stop("Sign-in required. Run 'login' and sign in in the opened browser.")
+def open_portal(page, url, ready):
+    """Wait for an authenticated view; allow sign-in in this browser run."""
+    page.goto(url, wait_until="domcontentloaded")
+    try:
+        ready.wait_for(timeout=12000)
+        return
+    except PlaywrightTimeout:
+        print("ISC2 sign-in is needed in the open browser window.", flush=True)
+        input("Sign in, wait for the portal, then press Enter here: ")
+    page.goto(url, wait_until="domcontentloaded")
+    try:
+        ready.wait_for(timeout=20000)
+    except PlaywrightTimeout as error:
+        raise Stop("The CISSP portal is still unavailable after sign-in; no changes made.") from error
 
 
 def transcript_item(cells):
@@ -146,12 +157,8 @@ def transcript_item(cells):
 
 def scan_transcript(page, term_id):
     """Read every page once, without submitting or changing the portal."""
-    page.goto(f"{TRANSCRIPT}?termId={term_id}", wait_until="domcontentloaded")
-    require_signed_in(page)
-    try:
-        page.locator("#cpeTable tbody tr").first.wait_for(timeout=20000)
-    except PlaywrightTimeout as error:
-        raise Stop("Transcript did not load; CSV left unchanged.") from error
+    open_portal(page, f"{TRANSCRIPT}?termId={term_id}",
+                page.locator("#cpeTable tbody tr").first)
     entries = []
     while True:
         table_rows = page.locator("#cpeTable tbody tr")
@@ -241,9 +248,9 @@ def enter_date(field, value):
 
 
 def submit_form(page, row, start, end, credit, domain, journal):
-    page.goto(HOME, wait_until="domcontentloaded")
-    require_signed_in(page)
-    page.get_by_role("button", name=re.compile("CISSP Logo")).click(timeout=20000)
+    card = page.get_by_role("button", name=re.compile("CISSP Logo"))
+    open_portal(page, HOME, card)
+    card.click(timeout=20000)
     enter_date(page.get_by_role("textbox", name="Start Date"), start)
     enter_date(page.get_by_role("textbox", name="End Date"), end)
     page.get_by_role("button", name="Save & Continue").click()
@@ -310,9 +317,9 @@ def main():
                 page.goto(HOME)
                 print("Sign in in the browser, then press Enter here.")
                 input()
-                page.goto(HOME)
-                require_signed_in(page)
-                print("Dedicated browser profile ready.")
+                card = page.get_by_role("button", name=re.compile("CISSP Logo"))
+                open_portal(page, HOME, card)
+                print("CISSP portal visible in this window. Sync and submit can also prompt for sign-in.")
             finally:
                 context.close()
         return
