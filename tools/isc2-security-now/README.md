@@ -37,9 +37,11 @@ If an accepted portal credit differs from the planned CSV credit, it records
 the accepted amount and flags the difference in the CSV note. All page reads
 must finish before it writes the CSV.
 
-If the portal asks you to sign in, complete that in the browser opened by
-`sync`. Once the portal loads, press Enter in the terminal. `sync` resumes in
-the same browser window.
+If prompted, sign in in the browser opened by `sync` and navigate to the CISSP
+transcript. Press Enter in the terminal once its entries are visible. `sync`
+uses that page directly. If the table still cannot be found, the terminal
+prints the page location and headings without exposing sign-in query values,
+and leaves the browser open for inspection until you press Enter again.
 
 ## Submit one episode
 
