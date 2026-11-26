@@ -1,0 +1,4 @@
+*.csv
+*.submission-journal.json
+__pycache__/
+.sn-cpe-browser/
