@@ -15,9 +15,10 @@ uv run sn_cpe.py login
 
 The first command installs the Chromium browser binary once. `uv run` reads the
 script’s PEP 723 metadata and installs its Python dependency automatically.
-`login` lets you sign in in a dedicated browser window. The browser profile
-persists at `~/.sn-cpe-browser`. Keep that directory private. If ISC2 logs you
-out, run `login` again.
+`login` opens a dedicated browser window for inspection. The browser profile
+is at `~/.sn-cpe-browser`; keep it private. ISC2 may require sign-in again on
+the next launch. `sync` and `submit` let you sign in in their own open browser
+window, then continue without launching a second one.
 
 ## Before a session: reconcile your transcript
 
@@ -36,6 +37,10 @@ If an accepted portal credit differs from the planned CSV credit, it records
 the accepted amount and flags the difference in the CSV note. All page reads
 must finish before it writes the CSV.
 
+If the portal asks you to sign in, complete that in the browser opened by
+`sync`. Once the portal loads, press Enter in the terminal. `sync` resumes in
+the same browser window.
+
 ## Submit one episode
 
 ```sh
@@ -47,7 +52,8 @@ uv run sn_cpe.py submit 1068 --csv /path/to/current.csv
 domain, fills the ISC2 form, verifies the review fields, and asks you to type
 `SUBMIT`. After the portal displays “CPE Successfully Submitted!”, it updates
 the adjacent CSV and exits. It waits until at least 120 seconds after the last
-recorded submission by default. For a longer interval:
+recorded submission by default. If sign-in is needed, do it in the browser
+opened by `submit`, then press Enter in the terminal. For a longer interval:
 
 ```sh
 uv run sn_cpe.py submit 1069 --min-gap 300
