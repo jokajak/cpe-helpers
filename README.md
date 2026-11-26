@@ -14,6 +14,17 @@ CPE form (with copy buttons as a fallback).
 
 See [`extension/README.md`](extension/README.md) for install and usage.
 
+## ISC2 Security Now CLI
+
+[`tools/isc2-security-now/`](tools/isc2-security-now/) is a separate Python CLI
+for a CSV-backed workflow: `sync` reconciles the ISC2 transcript, and `submit`
+handles one selected episode per invocation. It uses a dedicated browser profile
+and PEP 723 metadata, so `uv run sn_cpe.py` installs its Python dependency.
+The personal CSV stays outside this repository.
+
+See [`tools/isc2-security-now/README.md`](tools/isc2-security-now/README.md)
+for setup and commands.
+
 ## Tests
 
 - Extension (JS): `npm test` — zero-dependency unit tests via Node's built-in
