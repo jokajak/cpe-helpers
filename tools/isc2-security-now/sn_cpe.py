@@ -18,6 +18,7 @@ import tempfile
 import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
 from playwright.sync_api import expect, sync_playwright
@@ -122,20 +123,37 @@ def wait_gap(rows, journal, seconds):
             time.sleep(remaining + 1)
 
 
-def open_portal(page, url, ready):
+def portal_diagnostic(page):
+    # Do not print OAuth query parameters, which may contain temporary codes.
+    address = urlsplit(page.url)
+    location = f"{address.scheme}://{address.netloc}{address.path}"
+    headings = page.get_by_role("heading").all_inner_texts()[:5]
+    return f"location={location!r}, title={page.title()!r}, headings={headings!r}"
+
+
+def open_portal(page, url, ready, description="CISSP portal"):
     """Wait for an authenticated view; allow sign-in in this browser run."""
     page.goto(url, wait_until="domcontentloaded")
     try:
         ready.wait_for(timeout=12000)
         return
     except PlaywrightTimeout:
-        print("ISC2 sign-in is needed in the open browser window.", flush=True)
-        input("Sign in, wait for the portal, then press Enter here: ")
+        print("The expected ISC2 page is not available yet in the open browser.", flush=True)
+        input(f"Sign in, open the {description}, then press Enter here: ")
+    # A successful sign-in can leave the browser directly on the target page.
+    # Avoid another navigation that could discard a short-lived session.
+    try:
+        ready.wait_for(timeout=3000)
+        return
+    except PlaywrightTimeout:
+        pass
     page.goto(url, wait_until="domcontentloaded")
     try:
         ready.wait_for(timeout=20000)
     except PlaywrightTimeout as error:
-        raise Stop("The CISSP portal is still unavailable after sign-in; no changes made.") from error
+        print("Portal diagnostic: " + portal_diagnostic(page), flush=True)
+        input("Inspect the browser; press Enter to close it without changing the CSV: ")
+        raise Stop(f"The {description} is still unavailable; no changes made.") from error
 
 
 def transcript_item(cells):
@@ -158,7 +176,7 @@ def transcript_item(cells):
 def scan_transcript(page, term_id):
     """Read every page once, without submitting or changing the portal."""
     open_portal(page, f"{TRANSCRIPT}?termId={term_id}",
-                page.locator("#cpeTable tbody tr").first)
+                page.locator("#cpeTable tbody tr").first, "CISSP transcript")
     entries = []
     while True:
         table_rows = page.locator("#cpeTable tbody tr")
