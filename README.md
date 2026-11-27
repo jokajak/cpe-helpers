@@ -25,6 +25,8 @@ show notes. The personal CSV stays outside this repository.
 
 See [`tools/isc2-security-now/README.md`](tools/isc2-security-now/README.md)
 for setup and commands.
+To create or extend its CSV with an AI agent, use the
+[Security Now CPE CSV prompt](prompts/security-now-cpe-csv.md).
 
 ## Tests
 
