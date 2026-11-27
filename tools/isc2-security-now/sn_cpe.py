@@ -176,11 +176,11 @@ def transcript_item(cells):
 def scan_transcript(page, term_id):
     """Read every page once, without submitting or changing the portal."""
     open_portal(page, f"{TRANSCRIPT}?termId={term_id}",
-                page.locator("#cpeTable tbody tr").first, "CISSP transcript")
+                page.locator("#cpeTable tr").nth(1), "CISSP transcript")
     entries = []
     while True:
-        table_rows = page.locator("#cpeTable tbody tr")
-        for tr in table_rows.all():
+        table_rows = page.locator("#cpeTable tr")
+        for tr in table_rows.all()[1:]:
             entries.append(transcript_item([s.strip() for s in tr.locator("td").all_inner_texts()]))
         next_button = page.locator('button.slds-button_neutral:has(svg[data-key="right"])')
         if not next_button.count():
@@ -192,7 +192,7 @@ def scan_transcript(page, term_id):
         next_button.click()
         try:
             expect(marker).not_to_have_text(old_page, timeout=15000)
-            table_rows.first.wait_for(timeout=15000)
+            table_rows.nth(1).wait_for(timeout=15000)
         except (PlaywrightTimeout, AssertionError) as error:
             raise Stop("Transcript pagination stalled; CSV left unchanged.") from error
     return entries
