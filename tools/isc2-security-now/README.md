@@ -43,6 +43,21 @@ uses that page directly. If the table still cannot be found, the terminal
 prints the page location and headings without exposing sign-in query values,
 and leaves the browser open for inspection until you press Enter again.
 
+## Find available episodes
+
+After `sync`, list all eligible pending rows in the local CSV:
+
+```sh
+uv run sn_cpe.py list --csv /path/to/current.csv
+uv run sn_cpe.py list --csv /path/to/current.csv --limit 5
+```
+
+`list` uses the same eligibility and credit checks as `submit`. It prints
+episode number, estimated listening week, title, CPE credit, and a total.
+It does not open a browser or check the portal; run `sync` first to pick up
+manual submissions. An unresolved submission journal blocks the list until
+that attempt is reconciled.
+
 ## Submit one episode
 
 ```sh
