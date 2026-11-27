@@ -4,6 +4,7 @@ import importlib.util
 import io
 import unittest
 from pathlib import Path
+from datetime import date
 from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("sn_cpe", Path(__file__).with_name("sn_cpe.py"))
@@ -50,6 +51,34 @@ class EpisodeDraftTests(unittest.TestCase):
         with patch.object(sn_cpe, "urlopen", return_value=io.BytesIO(b'<a name="1068"></a>')):
             with self.assertRaisesRegex(sn_cpe.Stop, "no usable description"):
                 sn_cpe.fetch_episode_description(row)
+
+
+    def test_later_completed_window_can_become_eligible(self):
+        class FutureDate(date):
+            @classmethod
+            def today(cls):
+                return cls(2026, 12, 1)
+
+        row = {
+            "episode": "1105",
+            "credential": "CISSP",
+            "cpe_group": "Group A",
+            "release_date": "2026-11-17",
+            "title": "Formal Code Verification",
+            "notes_or_evidence": "Estimated listening week was incomplete on 2026-11-25.",
+            "estimated_listening_week_start": "2026-11-23",
+            "estimated_listening_week_end": "2026-11-29",
+            "published_duration_minutes": "142",
+            "provisional_cpe_half_hours": "1.5",
+        }
+        with patch.object(sn_cpe, "date", FutureDate):
+            _, end, credit = sn_cpe.details(row)
+            self.assertEqual(str(end), "2026-11-29")
+            self.assertEqual(credit, 1.5)
+            row["published_duration_minutes"] = ""
+            with self.assertRaisesRegex(sn_cpe.Stop, "duration or provisional credit is missing"):
+                sn_cpe.details(row)
+
 
 
 if __name__ == "__main__":
