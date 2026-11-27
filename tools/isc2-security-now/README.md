@@ -79,9 +79,10 @@ opened by `submit`, then press Enter in the terminal. For a longer interval:
 uv run sn_cpe.py submit 1069 --min-gap 300
 ```
 
-The CSV is intentionally **not** in this public repository. Download your
-current CSV, then pass `--csv /path/to/current.csv` to `sync`, `show`, and
-`submit`. Alternatively place it beside `sn_cpe.py` with the default name
+The CSV is intentionally **not** in this public repository. To create or
+extend one with an AI agent, use the [CSV generation prompt](../../prompts/security-now-cpe-csv.md).
+Download your current CSV, then pass `--csv /path/to/current.csv` to `sync`,
+`list`, `show`, and `submit`. Alternatively place it beside `sn_cpe.py` with the default name
 shown by `uv run sn_cpe.py --help`. The script updates only that local file.
 
 ## Manual submissions and uncertain outcomes
