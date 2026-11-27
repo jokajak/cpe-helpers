@@ -90,7 +90,7 @@ def details(row):
     if row["credential"] != "CISSP" or row["cpe_group"] != "Group A":
         raise Stop("This row is not CISSP Group A.")
     release = date.fromisoformat(row["release_date"])
-    if release < date(2025, 9, 1) or episode in (1058, 1105, 1106):
+    if release < date(2025, 9, 1) or episode == 1058:
         raise Stop("This row is excluded for this certification cycle.")
     if "year in review" in row["title"].casefold() or "do not" in row["notes_or_evidence"].casefold():
         raise Stop("This row's exclusion note prevents submission.")
@@ -99,8 +99,11 @@ def details(row):
     monday = release + timedelta(days=7 - release.weekday())
     if start != monday or end != start + timedelta(days=6) or end >= date.today():
         raise Stop("The following-week Monday–Sunday listening window is invalid or unfinished.")
-    duration = float(row["published_duration_minutes"])
-    credit = float(row["provisional_cpe_half_hours"])
+    try:
+        duration = float(row["published_duration_minutes"])
+        credit = float(row["provisional_cpe_half_hours"])
+    except ValueError as error:
+        raise Stop("Published duration or provisional credit is missing; verify the source.") from error
     calculated = math.floor((duration / 1.25 + 1e-9) / 30) * 0.5
     if credit <= 0 or abs(calculated - credit) > 1e-8:
         raise Stop(f"CSV credit {credit} differs from calculated credit {calculated}.")
