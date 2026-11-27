@@ -103,6 +103,24 @@ def details(row):
     return start, end, credit
 
 
+def list_available(rows, limit=None):
+    available = []
+    for row in sorted(rows, key=lambda item: int(item["episode"])):
+        if row["submitted_to_isc2"].strip():
+            continue
+        try:
+            start, end, credit = details(row)
+        except Stop:
+            continue
+        available.append((row, start, end, credit))
+    selected = available[:limit]
+    for row, start, end, credit in selected:
+        print(f"#{row['episode']} | {credit:.1f} CPE | {start}–{end} | {row['title']}")
+    print(f"{len(available)} eligible pending episodes, "
+          f"{sum(item[3] for item in available):.1f} CPE total"
+          + (f"; showing first {len(selected)}" if limit is not None else ""))
+
+
 def last_submission(rows, journal):
     stamps = []
     for row in rows:
@@ -311,22 +329,25 @@ def submit_form(page, row, start, end, credit, domain, journal):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("login", "sync", "show", "submit"))
+    parser.add_argument("command", choices=("login", "sync", "list", "show", "submit"))
     parser.add_argument("episode", type=int, nargs="?")
     parser.add_argument("--csv", type=Path, default=Path(__file__).with_name(
         "security-now-isc2-cpe-log-2025-08-to-2026-11.csv"))
     parser.add_argument("--profile", type=Path, default=Path.home() / ".sn-cpe-browser")
     parser.add_argument("--domain", help="Exact CISSP domain label; otherwise prompted")
     parser.add_argument("--min-gap", type=int, default=120, help="Seconds; minimum 120")
+    parser.add_argument("--limit", type=int, help="For list, show only the first N episodes")
     parser.add_argument("--term-id", default=os.environ.get("ISC2_TERM_ID"),
                         help="ISC2 CISSP transcript term ID (or ISC2_TERM_ID environment variable)")
     args = parser.parse_args()
     if args.command in ("show", "submit") and args.episode is None:
         parser.error("show/submit requires exactly one episode number")
-    if args.command in ("login", "sync") and args.episode is not None:
-        parser.error("login/sync takes no episode number")
+    if args.command in ("login", "sync", "list") and args.episode is not None:
+        parser.error("login/sync/list takes no episode number")
     if args.min_gap < 120:
         parser.error("Minimum submission gap is 120 seconds.")
+    if args.limit is not None and args.limit < 1:
+        parser.error("--limit must be a positive number")
     if args.command == "login":
         with sync_playwright() as p:
             context = p.chromium.launch_persistent_context(str(args.profile.expanduser()), headless=False)
@@ -344,6 +365,13 @@ def main():
     path = args.csv.resolve()
     fields, rows = read_csv(path)
     journal = path.with_suffix(".submission-journal.json")
+    if args.command == "list":
+        if journal.exists():
+            attempt = json.loads(journal.read_text(encoding="utf-8"))
+            raise Stop(f"Unresolved submission attempt for #{attempt['episode']}; "
+                       "run sync or inspect the portal before listing available episodes.")
+        list_available(rows, args.limit)
+        return
     if args.command == "sync":
         if not args.term_id or not re.fullmatch(r"[A-Za-z0-9]+", args.term_id):
             raise Stop("Set ISC2_TERM_ID from your CISSP transcript URL or pass --term-id.")
