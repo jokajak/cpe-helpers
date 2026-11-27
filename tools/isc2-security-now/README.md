@@ -65,9 +65,12 @@ uv run sn_cpe.py show 1068 --csv /path/to/current.csv
 uv run sn_cpe.py submit 1068 --csv /path/to/current.csv
 ```
 
-`show` reads only the CSV. `submit` validates the row, prompts for a CISSP
-domain, fills the ISC2 form, verifies the review fields, and asks you to type
-`SUBMIT`. After the portal displays “CPE Successfully Submitted!”, it updates
+`show` reads only the CSV. `submit` validates the row and fetches the
+selected episode's description from GRC's archive. It drafts an episode-specific
+summary, selects a CISSP domain from its topics, and prints both before opening
+the ISC2 form. It stops if GRC has no usable description. You can override the
+chosen domain with `--domain 'Exact CISSP domain label'`. The CLI fills the form,
+verifies the review fields, and asks you to type `SUBMIT`. After the portal displays “CPE Successfully Submitted!”, it updates
 the adjacent CSV and exits. It waits until at least 120 seconds after the last
 recorded submission by default. If sign-in is needed, do it in the browser
 opened by `submit`, then press Enter in the terminal. For a longer interval:

@@ -19,8 +19,9 @@ See [`extension/README.md`](extension/README.md) for install and usage.
 [`tools/isc2-security-now/`](tools/isc2-security-now/) is a separate Python CLI
 for a CSV-backed workflow: `sync` reconciles the ISC2 transcript, `list`
 shows eligible pending episodes, and `submit` handles one selected episode. It uses a dedicated browser profile
-and PEP 723 metadata, so `uv run sn_cpe.py` installs its Python dependency.
-The personal CSV stays outside this repository.
+and PEP 723 metadata, so `uv run sn_cpe.py` installs its Python dependencies.
+For the selected episode, it drafts the summary and CISSP domain from GRC's
+show notes. The personal CSV stays outside this repository.
 
 See [`tools/isc2-security-now/README.md`](tools/isc2-security-now/README.md)
 for setup and commands.
