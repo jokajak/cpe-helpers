@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["playwright>=1.50,<2"]
+# dependencies = ["playwright>=1.50,<2", "beautifulsoup4>=4.12,<5"]
 # ///
 """Submit exactly one CSV-listed Security Now episode to ISC2."""
 
@@ -18,7 +18,11 @@ import tempfile
 import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from urllib.error import URLError
 from urllib.parse import urlsplit
+from urllib.request import Request, urlopen
+
+from bs4 import BeautifulSoup, Tag
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
 from playwright.sync_api import expect, sync_playwright
@@ -261,17 +265,87 @@ def reconcile_transcript(path, fields, rows, entries, journal):
         print("Needs manual review: " + "; ".join(ambiguous), file=sys.stderr)
 
 
-def choose_domain(given):
+DOMAIN_KEYWORDS = {
+    "Security and Risk Management": ("risk", "governance", "compliance", "privacy",
+                                     "regulation", "policy", "framework", "law"),
+    "Asset Security": ("data classification", "data retention", "data broker",
+                       "data leak", "asset", "data handling"),
+    "Security Architecture and Engineering": ("cryptography", "encryption",
+        "cipher", "certificate", "pki", "tpm", "firmware", "secure boot", "architecture",
+        "attestation", "hardware", "quantum"),
+    "Communication and Network Security": ("network", "firewall", "vpn", "dns",
+        "routing", "wireless", "router", "tls", "ddos", "protocol", "zero trust"),
+    "Identity and Access Management (IAM)": ("authentication", "authorization",
+        "passkey", "password", "identity", "credential", "access control",
+        "least privilege", "mfa", "sso", "oauth", "login"),
+    "Security Assessment and Testing": ("penetration test", "pentest", "audit",
+        "vulnerability", "scanning", "bug bounty", "cve", "disclosure", "red team"),
+    "Security Operations": ("incident", "malware", "ransomware", "breach",
+        "detection", "response", "backup", "patch", "phishing", "exploit", "attack"),
+    "Software Development Security": ("software", "source code", "developer",
+        "appsec", "supply chain", "dependency", "injection", "fuzzing", "coding"),
+}
+
+
+def fetch_episode_description(row):
+    """Use the one episode's GRC archive entry; never synthesize its topics."""
+    url = row["archive_url"]
+    parsed = urlsplit(url)
+    if parsed.scheme != "https" or parsed.hostname not in ("grc.com", "www.grc.com"):
+        raise Stop(f"Untrusted archive URL for #{row['episode']}: {url}")
+    try:
+        request = Request(url, headers={"User-Agent": "Mozilla/5.0 (Security Now CPE helper)"})
+        with urlopen(request, timeout=25) as response:
+            soup = BeautifulSoup(response.read(), "html.parser")
+    except (OSError, URLError) as error:
+        raise Stop(f"Could not read GRC's episode description: {error}") from error
+    anchor = soup.find("a", attrs={"name":str(row["episode"])})
+    if anchor is None:
+        raise Stop(f"Episode #{row['episode']} was not found in the GRC archive.")
+    for element in anchor.next_elements:
+        if not isinstance(element, Tag):
+            continue
+        if element is not anchor and element.name == "a" and str(element.get("name", "")).isdigit():
+            break
+        if element.name != "font" or element.get("size") != "1":
+            continue
+        title = element.find("font", attrs={"size":"2"})
+        if title is None:
+            continue
+        text = element.get_text(" ", strip=True)
+        heading = title.get_text(" ", strip=True)
+        if text.startswith(heading):
+            text = text[len(heading):]
+        text = re.sub(r"\s+", " ", text).strip(" •-–—")
+        if len(text) >= 25:
+            return text
+    raise Stop(f"GRC has no usable description for episode #{row['episode']}; no submission made.")
+
+
+def choose_domain(row, description, given=None):
     if given:
         if given not in DOMAINS:
             raise Stop("Unknown domain label.")
         return given
-    for i, domain in enumerate(DOMAINS, 1):
-        print(f"{i}. {domain}")
-    selected = input("CISSP domain [1-8]: ").strip()
-    if not selected.isdigit() or not 1 <= int(selected) <= 8:
-        raise Stop("No valid domain selected.")
-    return DOMAINS[int(selected) - 1]
+    title, body = row["title"].casefold(), description.casefold()
+    scores = {
+        domain: sum(3 * (phrase in title) + (phrase in body)
+                    for phrase in phrases)
+        for domain, phrases in DOMAIN_KEYWORDS.items()
+    }
+    winner = max(DOMAINS, key=lambda domain: scores[domain])
+    return winner if scores[winner] else "Security Operations"
+
+
+def build_summary(row, description):
+    topics = [part.strip(" .;•") for part in description.split("•") if part.strip(" .;•")]
+    if len(topics) > 5:
+        topics = topics[:4] + topics[-1:]
+    body = "; ".join(topics) if len(topics) > 1 else description
+    summary = f"Security Now #{row['episode']} ({row['title']}): {body}"
+    if len(summary) > 750:
+        summary = summary[:747].rsplit(" ", 1)[0].rstrip(" ,;") + "..."
+    return summary
 
 
 def enter_date(field, value):
@@ -283,7 +357,7 @@ def enter_date(field, value):
         raise Stop("Portal date field did not accept the listening date.")
 
 
-def submit_form(page, row, start, end, credit, domain, journal):
+def submit_form(page, row, start, end, credit, domain, summary, journal):
     card = page.get_by_role("button", name=re.compile("CISSP Logo"))
     open_portal(page, HOME, card)
     card.click(timeout=20000)
@@ -297,12 +371,6 @@ def submit_form(page, row, start, end, credit, domain, journal):
     page.get_by_role("textbox", name="Presenter").fill("Steve Gibson")
     page.get_by_role("textbox", name="Year Published").fill(row["release_date"][:4])
     page.get_by_role("spinbutton", name="Credits").fill(f"{credit:.1f}")
-    summary = (
-        f"Listened to Security Now episode {row['episode']}, {row['title']}, "
-        f"during the estimated following week. Published duration "
-        f"{row['published_duration_minutes']} minutes; listened at 1.25x playback "
-        f"speed, with CPE rounded down to the nearest half hour."
-    )
     page.get_by_role("textbox", name="Summary").fill(summary)
     page.get_by_role("button", name="Save & Continue").click()
     page.get_by_text(domain, exact=True).click()
@@ -334,7 +402,7 @@ def main():
     parser.add_argument("--csv", type=Path, default=Path(__file__).with_name(
         "security-now-isc2-cpe-log-2025-08-to-2026-11.csv"))
     parser.add_argument("--profile", type=Path, default=Path.home() / ".sn-cpe-browser")
-    parser.add_argument("--domain", help="Exact CISSP domain label; otherwise prompted")
+    parser.add_argument("--domain", help="Override the automatically selected CISSP domain")
     parser.add_argument("--min-gap", type=int, default=120, help="Seconds; minimum 120")
     parser.add_argument("--limit", type=int, help="For list, show only the first N episodes")
     parser.add_argument("--term-id", default=os.environ.get("ISC2_TERM_ID"),
@@ -396,13 +464,16 @@ def main():
         previous = json.loads(journal.read_text(encoding="utf-8"))
         raise Stop(f"Unresolved submission attempt for #{previous['episode']}. "
                    "Inspect the portal and update the CSV manually before retrying.")
-    domain = choose_domain(args.domain)
+    description = fetch_episode_description(row)
+    domain = choose_domain(row, description, args.domain)
+    summary = build_summary(row, description)
+    print(f"Domain: {domain}\nSummary: {summary}")
     wait_gap(rows, journal, args.min_gap)
     with sync_playwright() as p:
         context = p.chromium.launch_persistent_context(str(args.profile.expanduser()), headless=False)
         try:
             page = context.pages[0] if context.pages else context.new_page()
-            clicked, confirmed = submit_form(page, row, start, end, credit, domain, journal)
+            clicked, confirmed = submit_form(page, row, start, end, credit, domain, summary, journal)
             row["final_cpe_claim"] = f"{credit:.1f}"
             row["submitted_to_isc2"] = "Yes — portal confirmed"
             row["notes_or_evidence"] = (
